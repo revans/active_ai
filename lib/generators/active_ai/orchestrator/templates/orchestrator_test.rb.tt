@@ -1,0 +1,14 @@
+require "test_helper"
+
+class <%= class_name %>OrchestratorTest < ActiveSupport::TestCase
+  test "to_canonical_params includes system prompt" do
+    orch = <%= class_name %>Orchestrator.new(message: "test")
+    assert orch.to_canonical_params[:system].present?
+  end
+
+  test "to_canonical_params lists registered tools" do
+    orch  = <%= class_name %>Orchestrator.new(message: "test")
+    names = orch.to_canonical_params[:tools].map { |t| t[:name] }
+    assert_kind_of Array, names
+  end
+end

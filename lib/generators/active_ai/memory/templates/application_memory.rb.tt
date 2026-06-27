@@ -1,0 +1,25 @@
+# Memory::ApplicationMemory — base class for all memory configuration in this app.
+#
+# Subclass to define memory behavior for a specific agent, orchestrator,
+# or skill context:
+#
+#   class Memory::WriterAgentMemory < Memory::ApplicationMemory
+#     recall_strategy :hybrid   # :warm | :cold | :hybrid
+#     token_budget 1200         # max tokens injected into context
+#     scope "introduction"      # optional scope dimension
+#   end
+#
+# Override .recall to add agent/user/subject context:
+#
+#   class Memory::WriterAgentMemory < Memory::ApplicationMemory
+#     recall_strategy :hybrid
+#     token_budget 1200
+#
+#     def self.recall(user:, document:, **)
+#       super(user: user, subject: document)
+#     end
+#   end
+class Memory::ApplicationMemory < ActiveAI::Memory::Base
+  include ActiveAI::Promptable
+  prompt_namespace :memory
+end

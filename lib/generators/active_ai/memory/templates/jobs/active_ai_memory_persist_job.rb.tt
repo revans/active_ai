@@ -1,0 +1,29 @@
+class ActiveAIMemoryPersistJob < ApplicationJob
+  queue_as :active_ai_memory
+
+  def perform(user_gid:, agent_class:, subject_gid: nil, scope: nil, full_response:)
+    user    = GlobalID::Locator.locate(user_gid)
+    subject = subject_gid ? GlobalID::Locator.locate(subject_gid) : nil
+    agent   = agent_class.constantize
+
+    embed_agent = ActiveAIMemoryEmbedAgent.new(response: full_response)
+    raw_summary = embed_agent.complete
+    summary     = JSON.parse(raw_summary)
+
+    memory = ActiveAI::Memory.persist(
+      user:    user,
+      agent:   agent,
+      subject: subject,
+      scope:   scope,
+      summary: summary,
+      async:   false
+    )
+
+    ActiveAIMemoryEmbedJob.perform_later(memory.id)
+  rescue JSON::ParserError => e
+    Rails.logger.error("[ActiveAIMemoryPersistJob] JSON parse error for agent #{agent_class}: #{e.message}")
+  rescue StandardError => e
+    Rails.logger.error("[ActiveAIMemoryPersistJob] Error persisting memory for #{agent_class}: #{e.message}")
+    raise
+  end
+end

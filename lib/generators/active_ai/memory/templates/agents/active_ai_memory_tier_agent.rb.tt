@@ -1,0 +1,46 @@
+class ActiveAIMemoryTierAgent < ApplicationAgent
+  provider :anthropic
+  model "claude-haiku-4-5-20251001", max_tokens: 512
+  system_prompt <<~PROMPT
+    You are a memory triage agent. You evaluate a single memory record and recent context
+    to decide its tier status.
+
+    Rules (apply in order):
+    1. If the memory has open_threads with any entries, keep it warm regardless of access count.
+    2. If this is the only memory for this agent (recent_context is empty), keep it warm.
+    3. If the memory has not been accessed in 10+ sessions AND has no open_threads, move it cold.
+    4. If the memory content directly contradicts more recent memory on the same subject, flag it as stale.
+    5. Otherwise, keep it warm.
+
+    Respond ONLY with valid JSON in this exact format:
+    {"decision":"keep_warm","reason":"string","confidence":0.9}
+
+    decision must be exactly one of: "keep_warm", "move_cold", "flag_stale"
+    confidence is a float from 0.0 to 1.0
+  PROMPT
+
+  def initialize(memory:, recent_context: [])
+    @memory         = memory
+    @recent_context = recent_context
+  end
+
+  private
+
+  def build_params
+    {
+      model:        resolved_model,
+      max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
+      system:       self.class._system_prompt.to_s,
+      skills:       [],
+      source_files: [],
+      messages:     [
+        {
+          role:    "user",
+          content: "Memory to evaluate:\n#{@memory}\n\nRecent context memories:\n#{@recent_context.join("\n---\n")}"
+        }
+      ],
+      cacheable: {},
+      tools:     []
+    }
+  end
+end

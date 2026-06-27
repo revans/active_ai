@@ -1,0 +1,11 @@
+require "test_helper"
+
+class <%= class_name %>WorkflowTest < ActiveSupport::TestCase
+  test "<%= class_name %>Workflow includes Orchestratable" do
+    assert <%= class_name %>Workflow.include?(ActiveAI::Orchestratable)
+  end
+
+  test "<%= class_name %>Workflow responds to run" do
+    assert_respond_to <%= class_name %>Workflow.new, :run
+  end
+end

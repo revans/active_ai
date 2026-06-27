@@ -1,0 +1,8 @@
+class ResearchWorkflow < ApplicationWorkflow
+  def run(input)
+    # TODO: implement workflow logic.
+    # Coordinate agents, tools, and sub-workflows here.
+    # Return the final result as a string.
+    raise NotImplementedError, "#{self.class}#run is not implemented"
+  end
+end

@@ -1,0 +1,23 @@
+class CreateActiveAiMemoryCorrelations < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :active_ai_memory_correlations do |t|
+      t.bigint :memory_a_id, null: false
+      t.bigint :memory_b_id, null: false
+      t.float  :similarity_score
+      t.string :correlation_type
+      t.timestamps
+    end
+
+    add_foreign_key :active_ai_memory_correlations, :active_ai_memories, column: :memory_a_id
+    add_foreign_key :active_ai_memory_correlations, :active_ai_memories, column: :memory_b_id
+    add_index :active_ai_memory_correlations, [:memory_a_id, :memory_b_id], unique: true, name: "idx_aim_correlation_pair"
+    add_index :active_ai_memory_correlations, :memory_b_id
+
+    # Enforce memory_a_id < memory_b_id to prevent duplicate pairs.
+    reversible do |dir|
+      dir.up do
+        execute "CREATE UNIQUE INDEX IF NOT EXISTS idx_aim_correlation_ordered ON active_ai_memory_correlations (MIN(memory_a_id, memory_b_id), MAX(memory_a_id, memory_b_id))" rescue nil
+      end
+    end
+  end
+end

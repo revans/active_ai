@@ -1,0 +1,9 @@
+class EditorialOrchestrator < ApplicationOrchestrator
+  provider :anthropic
+  model "claude-sonnet-4-6", max_tokens: 4096
+  system_prompt "You coordinate tasks."
+
+  # Register agents and workflows:
+  # agent SomeAgent,    description: "What this agent does"
+  # workflow SomeFlow,  description: "What this workflow does"
+end

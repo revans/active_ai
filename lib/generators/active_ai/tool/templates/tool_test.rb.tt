@@ -1,0 +1,14 @@
+require "test_helper"
+
+class <%= class_name %>ToolTest < ActiveSupport::TestCase
+  setup do
+    @tool = <%= class_name %>Tool.new
+  end
+
+  test "to_definition returns valid tool shape" do
+    defn = <%= class_name %>Tool.to_definition
+    assert_equal "<%= file_name %>", defn[:name]
+    assert defn[:description].present?
+    assert_equal "object", defn.dig(:input_schema, :type)
+  end
+end

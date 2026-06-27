@@ -1,0 +1,42 @@
+class ActiveAIMemoryEmbedAgent < ApplicationAgent
+  provider :anthropic
+  model "claude-haiku-4-5-20251001", max_tokens: 1024
+  system_prompt <<~PROMPT
+    You are a memory extraction agent. Extract canonical facts from an AI response or structured summary.
+
+    Produce a JSON object with:
+    - "canonical_facts": array of clear, atomic fact strings extracted from the content
+    - "embedding_text": a single clean prose paragraph of the canonical facts for vector embedding
+
+    The embedding_text must be clean prose suitable for semantic search — no JSON, no metadata, no formatting.
+
+    Respond ONLY with valid JSON in this exact format:
+    {"canonical_facts":["fact 1","fact 2"],"embedding_text":"clean prose paragraph"}
+  PROMPT
+
+  def initialize(response: nil, summary: nil)
+    @response = response
+    @summary  = summary
+  end
+
+  private
+
+  def build_params
+    content = if @response
+      "Extract facts from this AI response:\n#{@response}"
+    else
+      "Extract facts from this structured memory summary:\n#{@summary.to_json}"
+    end
+
+    {
+      model:        resolved_model,
+      max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
+      system:       self.class._system_prompt.to_s,
+      skills:       [],
+      source_files: [],
+      messages:     [{ role: "user", content: content }],
+      cacheable:    {},
+      tools:        []
+    }
+  end
+end

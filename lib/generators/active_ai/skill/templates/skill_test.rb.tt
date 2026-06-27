@@ -1,0 +1,9 @@
+require "test_helper"
+
+class <%= class_name %>SkillTest < ActiveSupport::TestCase
+  test "to_definition returns valid skill shape" do
+    defn = <%= class_name %>Skill.to_definition
+    assert_equal "<%= file_name %>", defn[:name]
+    assert defn[:content].present?
+  end
+end

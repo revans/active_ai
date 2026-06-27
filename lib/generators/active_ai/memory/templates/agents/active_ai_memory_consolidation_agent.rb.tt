@@ -1,0 +1,50 @@
+class ActiveAIMemoryConsolidationAgent < ApplicationAgent
+  provider :anthropic
+  model "claude-sonnet-4-6", max_tokens: 512
+  system_prompt <<~PROMPT
+    You are a memory consolidation agent. You evaluate two memory records for their relationship.
+
+    Detect the relationship type between them:
+    - "semantic": related topics or concepts, similar context
+    - "temporal": one follows from another in time or sequence
+    - "subject": about the same subject/entity
+    - "contradiction": the memories make conflicting claims
+    - "none": no meaningful relationship
+
+    When you detect a contradiction, set should_flag to true.
+    Do NOT resolve contradictions — only detect and flag them.
+
+    Respond ONLY with valid JSON in this exact format:
+    {"correlation_type":"semantic","similarity_score":0.85,"should_flag":false,"flag_type":null,"flag_reason":null}
+
+    correlation_type must be one of: "semantic", "temporal", "subject", "contradiction", "none"
+    similarity_score is a float from 0.0 to 1.0
+    flag_type must be "contradiction", "superseded", or null
+    flag_reason is a string explaining the flag, or null
+  PROMPT
+
+  def initialize(memory_a:, memory_b:)
+    @memory_a = memory_a
+    @memory_b = memory_b
+  end
+
+  private
+
+  def build_params
+    {
+      model:        resolved_model,
+      max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
+      system:       self.class._system_prompt.to_s,
+      skills:       [],
+      source_files: [],
+      messages:     [
+        {
+          role:    "user",
+          content: "Memory A:\n#{@memory_a}\n\nMemory B:\n#{@memory_b}"
+        }
+      ],
+      cacheable: {},
+      tools:     []
+    }
+  end
+end

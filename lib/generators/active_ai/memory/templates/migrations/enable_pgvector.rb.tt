@@ -1,0 +1,9 @@
+class EnablePgvector < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def up
+    enable_extension "vector"
+  end
+
+  def down
+    disable_extension "vector"
+  end
+end

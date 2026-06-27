@@ -1,0 +1,77 @@
+class ActiveAIMemoryTierJob < ApplicationJob
+  BATCH_SIZE     = 50
+  MAX_COST_GUARD = 100
+
+  queue_as :active_ai_memory
+
+  def perform(cursor: nil, processed_count: 0)
+    return if processed_count >= MAX_COST_GUARD
+
+    candidates = warm_candidates(cursor)
+    return if candidates.empty?
+
+    candidates.each do |memory|
+      break if processed_count >= MAX_COST_GUARD
+
+      recent_context = recent_summaries_for(memory)
+      agent          = ActiveAIMemoryTierAgent.new(
+        memory:         memory.summary.to_json,
+        recent_context: recent_context
+      )
+
+      raw    = agent.complete
+      result = JSON.parse(raw)
+
+      apply_decision(memory, result)
+      processed_count += 1
+    end
+
+    if candidates.size == BATCH_SIZE
+      self.class.perform_later(
+        cursor:          candidates.last.id,
+        processed_count: processed_count
+      )
+    end
+  rescue JSON::ParserError => e
+    Rails.logger.error("[ActiveAIMemoryTierJob] JSON parse error: #{e.message}")
+  rescue StandardError => e
+    Rails.logger.error("[ActiveAIMemoryTierJob] Error: #{e.message}")
+    raise
+  end
+
+  private
+
+  def warm_candidates(cursor)
+    relation = ActiveAIMemory.warm
+      .where("last_accessed_at < ? OR last_accessed_at IS NULL", 30.days.ago)
+      .order(:id)
+      .limit(BATCH_SIZE)
+
+    relation = relation.where("id > ?", cursor) if cursor
+    relation.to_a
+  end
+
+  def recent_summaries_for(memory)
+    ActiveAIMemory.warm
+      .where(agent_class: memory.agent_class)
+      .where.not(id: memory.id)
+      .order(last_accessed_at: :desc)
+      .limit(3)
+      .pluck(:summary)
+  end
+
+  def apply_decision(memory, result)
+    case result["decision"]
+    when "move_cold"
+      memory.update!(tier: "cold")
+    when "flag_stale"
+      memory.active_ai_memory_flags.create!(
+        flag_type:          "stale",
+        reason:             result["reason"],
+        confidence_at_flag: result["confidence"]
+      )
+    when "keep_warm"
+      # no-op
+    end
+  end
+end

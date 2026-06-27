@@ -1,0 +1,13 @@
+class <%= class_name %>Agent < ApplicationAgent
+  # Built-in tools (opt-in):
+  # tools ActiveAI::Tools::WebSearch      # requires FIRECRAWL_API_KEY in ENV
+  # tools ActiveAI::Tools::WebPageReader  # no key required
+
+  private
+
+  def build_params
+    super.merge(
+      # system: prompt(:<%= file_name %>)  # loads app/ai/prompts/<%= file_name %>.md
+    )
+  end
+end

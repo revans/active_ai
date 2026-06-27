@@ -1,0 +1,29 @@
+# SQLite compatibility note: jsonb is not supported by SQLite.
+# Using `text :summary` with `serialize :summary, coder: JSON` on the model.
+# When migrating to PostgreSQL, change to `jsonb :summary, default: {}`.
+class CreateActiveAiMemories < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :active_ai_memories do |t|
+      t.string  :user_type
+      t.bigint  :user_id
+      t.string  :subject_type
+      t.bigint  :subject_id
+      t.string  :agent_class, null: false
+      t.string  :scope
+      t.string  :tier, null: false, default: "warm"
+      t.text    :summary, null: false, default: "{}"
+      t.integer :token_estimate
+      t.integer :access_count, null: false, default: 0
+      t.datetime :last_accessed_at
+      t.datetime :promoted_at
+      t.float   :confidence, null: false, default: 1.0
+      t.timestamps
+    end
+
+    add_index :active_ai_memories, [:user_type, :user_id, :agent_class], name: "idx_aim_user_agent"
+    add_index :active_ai_memories, [:subject_type, :subject_id, :agent_class], name: "idx_aim_subject_agent"
+    add_index :active_ai_memories, [:user_type, :user_id, :subject_type, :subject_id, :agent_class, :scope], name: "idx_aim_full_lookup"
+    add_index :active_ai_memories, [:tier, :last_accessed_at], name: "idx_aim_tier_access"
+    add_index :active_ai_memories, [:agent_class, :subject_type, :subject_id], name: "idx_aim_agent_subject"
+  end
+end

@@ -1,0 +1,10 @@
+class <%= class_name %>Tool < ApplicationTool
+  tool_name "<%= file_name %>"
+  description "TODO: describe what <%= class_name %>Tool does"
+
+  # param :input, type: :string, description: "..."
+
+  def call(**inputs)
+    raise NotImplementedError, "#{self.class}#call is not implemented"
+  end
+end

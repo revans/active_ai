@@ -1,0 +1,15 @@
+class CreateActiveAiMemoryEmbeddings < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :active_ai_memory_embeddings do |t|
+      t.bigint  :memory_id, null: false
+      t.string  :vector_id, null: false
+      t.string  :vector_store, null: false, default: "pgvector"
+      t.datetime :embedded_at
+      t.timestamps
+    end
+
+    add_foreign_key :active_ai_memory_embeddings, :active_ai_memories, column: :memory_id
+    add_index :active_ai_memory_embeddings, :vector_id
+    add_index :active_ai_memory_embeddings, [:memory_id, :vector_store], unique: true
+  end
+end

@@ -1,0 +1,87 @@
+class ActiveAIMemoryConsolidateJob < ApplicationJob
+  BATCH_SIZE = 20
+  MAX_PAIRS  = 50
+
+  queue_as :active_ai_memory
+
+  def perform
+    embedded_memory_ids = ActiveAIMemoryEmbedding.pluck(:memory_id)
+    return if embedded_memory_ids.empty?
+
+    processed_pairs = Set.new
+    pair_count      = 0
+
+    embedded_memory_ids.first(BATCH_SIZE).each do |memory_id|
+      break if pair_count >= MAX_PAIRS
+
+      memory = ActiveAIMemory.find_by(id: memory_id, tier: "warm")
+      next unless memory
+
+      similar_ids = find_similar_ids(memory)
+      similar_ids.each do |similar_id|
+        break if pair_count >= MAX_PAIRS
+        next if similar_id == memory_id
+
+        a, b = [memory_id, similar_id].sort
+        pair_key = "#{a}:#{b}"
+        next if processed_pairs.include?(pair_key)
+        next if ActiveAIMemoryCorrelation.exists?(memory_a_id: a, memory_b_id: b)
+
+        processed_pairs << pair_key
+
+        similar_memory = ActiveAIMemory.find_by(id: similar_id)
+        next unless similar_memory
+
+        process_pair(memory, similar_memory, a, b)
+        pair_count += 1
+      end
+    end
+  rescue StandardError => e
+    Rails.logger.error("[ActiveAIMemoryConsolidateJob] Error: #{e.message}")
+    raise
+  end
+
+  private
+
+  def find_similar_ids(memory)
+    embedding = ActiveAIMemoryEmbedding.find_by(memory_id: memory.id)
+    return [] unless embedding
+
+    store = ActiveAI.vector_store_adapter
+    store.query(embedding: Array.new(1536, 0.0), limit: 5, filter: { tier: "warm" })
+         .map { |r| r[:memory_id] }
+  rescue StandardError
+    []
+  end
+
+  def process_pair(memory_a, memory_b, a_id, b_id)
+    agent = ActiveAIMemoryConsolidationAgent.new(
+      memory_a: memory_a.summary.to_json,
+      memory_b: memory_b.summary.to_json
+    )
+    raw    = agent.complete
+    result = JSON.parse(raw)
+
+    return if result["correlation_type"] == "none"
+
+    ActiveAIMemoryCorrelation.find_or_create_by!(
+      memory_a_id: a_id,
+      memory_b_id: b_id
+    ) do |corr|
+      corr.similarity_score = result["similarity_score"]
+      corr.correlation_type = result["correlation_type"]
+    end
+
+    if result["should_flag"]
+      [memory_a, memory_b].each do |m|
+        m.active_ai_memory_flags.create!(
+          flag_type:          result["flag_type"],
+          reason:             result["flag_reason"],
+          confidence_at_flag: m.confidence
+        )
+      end
+    end
+  rescue JSON::ParserError => e
+    Rails.logger.error("[ActiveAIMemoryConsolidateJob] JSON parse error for pair (#{a_id}, #{b_id}): #{e.message}")
+  end
+end

@@ -1,0 +1,14 @@
+require "test_helper"
+
+class <%= class_name %>AgentTest < ActiveSupport::TestCase
+  setup do
+    @agent = <%= class_name %>Agent.new(system: "test", message: "test")
+  end
+
+  test "build_params returns expected keys" do
+    params = @agent.send(:build_params)
+    %i[model max_tokens system messages].each do |key|
+      assert params.key?(key), "build_params missing key :#{key}"
+    end
+  end
+end
