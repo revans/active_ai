@@ -37,7 +37,7 @@ workflow ResearchAndDraftWorkflow
 
 Each registered class must:
 - Include `ActiveAI::Orchestratable` (done automatically in `ApplicationAgent` and `ApplicationWorkflow`)
-- Implement `run_with_message(message, **context)` (done automatically in `ApplicationAgent`)
+- Implement `self.run(message, **context)` (inherited automatically from `ActiveAI::Base` by `ApplicationAgent`, and from `ActiveAI::Workflow` by `ApplicationWorkflow`)
 
 ---
 
@@ -60,7 +60,7 @@ class WritingOrchestrator < ApplicationOrchestrator
 end
 ```
 
-`context_for` is merged into the `run_with_message(**context)` call. This is how you inject domain objects (documents, projects, users) into agents that need them, without the orchestrator needing to know about those objects directly.
+`context_for` is merged into the `run(message, **context)` call when the Orchestrator dispatches to that agent or workflow. This is how you inject domain objects (documents, projects, users) without the orchestrator needing to know about them directly.
 
 ---
 
@@ -75,7 +75,7 @@ result = WritingOrchestrator.run("Write an introduction for my article about Rai
 **Instance method:**
 
 ```ruby
-orchestrator = WritingOrchestrator.new(input: "Write an introduction for my article about Rails.")
+orchestrator = WritingOrchestrator.new(message: "Write an introduction for my article about Rails.")
 result       = orchestrator.complete
 ```
 
@@ -83,20 +83,9 @@ result       = orchestrator.complete
 
 ## Orchestratable
 
-`ActiveAI::Orchestratable` is a mixin that makes a class dispatchable by an Orchestrator. `ApplicationAgent` already includes it. Include it in custom base classes if you create your own:
+`ActiveAI::Orchestratable` is a marker mixin that makes a class dispatchable by an Orchestrator. `ApplicationAgent` and `ApplicationWorkflow` already include it.
 
-```ruby
-class ApplicationOrchestrator < ActiveAI::Orchestrator
-  include ActiveAI::Orchestratable
-  prompt_namespace :orchestrator
-
-  def self.run_with_message(message, **context)
-    new(input: message, **context).complete
-  end
-end
-```
-
-The mixin requirement is `run_with_message(message, **context)` — a normalized entry point that the dispatching orchestrator calls. The exact implementation is up to the class.
+The dispatching Orchestrator calls `klass.run(message, **context)` on each registered class. Agent classes inherit `run` from `ActiveAI::Base`; workflow classes inherit it from `ActiveAI::Workflow`. Custom base classes that want to be Orchestratable must include the module and implement `self.run(message, **context)`.
 
 ---
 
@@ -106,7 +95,7 @@ The mixin requirement is `run_with_message(message, **context)` — a normalized
 2. The orchestrator builds its system prompt listing all registered agents/workflows with their descriptions.
 3. Each agent/workflow is exposed as a meta-tool: `{ name: "writing_agent", description: "Drafts content", input_schema: { message: string } }`.
 4. The model calls `writing_agent(message: "Write an intro.")`.
-5. The orchestrator executes `WritingAgent.run_with_message("Write an intro.", **context_for(WritingAgent))`.
+5. The orchestrator executes `WritingAgent.run("Write an intro.", **context_for(WritingAgent))`.
 6. The result is returned as the tool result.
 7. The model produces a final response.
 

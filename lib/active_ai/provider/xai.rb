@@ -35,7 +35,7 @@ module ActiveAI
         @last_usage = normalize_usage(accumulator)
         finalize_tool_calls(accumulator)
       rescue ::OpenAI::Error => openai_error
-        raise ActiveAI::ProviderError.new(openai_error.message, cause: openai_error)
+        raise ActiveAI::ProviderError.new("xAI: #{openai_error.message}", cause: openai_error)
       rescue Faraday::Error => faraday_error
         raise ActiveAI::ProviderError.new("Network error: #{faraday_error.message}", cause: faraday_error)
       end
@@ -47,10 +47,16 @@ module ActiveAI
       end
 
       def client
-        @client ||= ::OpenAI::Client.new(
-          access_token: ActiveAI.config.api_key_for(:xai),
-          uri_base:     "https://api.x.ai/v1"
-        )
+        @client ||= begin
+          api_key = ActiveAI.config.api_key_for(:xai)
+          if api_key.blank?
+            raise ActiveAI::ConfigurationError,
+              "No API key configured for :xai — set XAI_API_KEY in ENV, " \
+              "add it to Rails credentials under active_ai.xai_api_key, or " \
+              "register an api_key_resolver in config/initializers/active_ai.rb"
+          end
+          ::OpenAI::Client.new(access_token: api_key, uri_base: "https://api.x.ai/v1")
+        end
       end
     end
   end

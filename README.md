@@ -37,6 +37,9 @@ This creates:
 
 - `app/ai/agents/application_agent.rb` — your base agent class
 - `app/ai/tools/application_tool.rb` — your base tool class
+- `app/ai/skills/application_skill.rb` — your base skill class
+- `app/ai/workflows/application_workflow.rb` — your base workflow class
+- `app/ai/orchestrators/application_orchestrator.rb` — your base orchestrator class
 - `config/ai.yml` — provider and model defaults per environment
 - `config/initializers/active_ai.rb` — runtime configuration hook
 
@@ -46,7 +49,7 @@ This creates:
 
 ```ruby
 class WritingAgent < ApplicationAgent
-  tool ActiveAI::Tools::WebSearch
+  tools ActiveAI::Tools::WebSearch
 
   def initialize(document:, **kwargs)
     @document = document
@@ -91,10 +94,11 @@ end
 | Class | When raised |
 |---|---|
 | `ActiveAI::Error` | Base class for all ActiveAI errors |
-| `ActiveAI::ConfigurationError` | Unknown provider, missing required configuration |
-| `ActiveAI::ProviderError` | Provider API error; wraps the original via `.cause` |
-| `ActiveAI::Tools::NotConfigured` | Built-in tool used without required configuration |
-| `ActiveAI::MissingPrompt` | `prompt(:name)` called but no file exists at the expected path |
+| `ActiveAI::ConfigurationError` | Unknown provider, missing API key, duplicate tool names, or other misconfiguration |
+| `ActiveAI::ProviderError` | Provider API error; message is prefixed with the provider name (`"Anthropic: ..."`, `"OpenAI: ..."`, `"xAI: ..."`) and wraps the original via `.cause` |
+| `ActiveAI::ToolLoopError` | Agentic loop exceeded `MAX_TOOL_ITERATIONS` without a final text response |
+| `ActiveAI::Tools::NotConfiguredError` | Built-in tool used without required configuration |
+| `ActiveAI::MissingPromptError` | Prompt file not found at the expected path; raised as `PromptResolver::PromptNotFound < MissingPromptError`, so `rescue ActiveAI::Error` catches it |
 
 ---
 

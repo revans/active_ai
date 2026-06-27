@@ -45,7 +45,7 @@ module ActiveAI
         @last_assistant_content = []
         response.content.first.text
       rescue ::Anthropic::Errors::Error => provider_error
-        raise ActiveAI::ProviderError.new(provider_error.message, cause: provider_error)
+        raise ActiveAI::ProviderError.new("Anthropic: #{provider_error.message}", cause: provider_error)
       end
 
       def stream(canonical, &block)
@@ -60,7 +60,7 @@ module ActiveAI
         @last_tool_calls        = extract_tool_calls(accumulated_message)
         @last_assistant_content = extract_assistant_content(accumulated_message)
       rescue ::Anthropic::Errors::Error => provider_error
-        raise ActiveAI::ProviderError.new(provider_error.message, cause: provider_error)
+        raise ActiveAI::ProviderError.new("Anthropic: #{provider_error.message}", cause: provider_error)
       end
 
       private
@@ -207,7 +207,16 @@ module ActiveAI
       end
 
       def client
-        @client ||= ::Anthropic::Client.new(api_key: ActiveAI.config.api_key_for(:anthropic))
+        @client ||= begin
+          api_key = ActiveAI.config.api_key_for(:anthropic)
+          if api_key.blank?
+            raise ActiveAI::ConfigurationError,
+              "No API key configured for :anthropic — set ANTHROPIC_API_KEY in ENV, " \
+              "add it to Rails credentials under active_ai.anthropic_api_key, or " \
+              "register an api_key_resolver in config/initializers/active_ai.rb"
+          end
+          ::Anthropic::Client.new(api_key: api_key)
+        end
       end
     end
   end

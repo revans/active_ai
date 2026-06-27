@@ -36,8 +36,8 @@ result = step(AgentClass, message: "What is Rails 8?", **context_kwargs)
 
 `step` accepts:
 
-- **Agent class** — calls `AgentClass.run_with_message(message:, **context_kwargs)`
-- **Tool class** — instantiates and calls `ToolClass.new.call(**kwargs)`
+- **Agent class** — calls `AgentClass.new(**kwargs).complete` (same as `AgentClass.run(message, **context_kwargs)`)
+- **Tool class** — calls `ToolClass.call(**kwargs)` (stateless class-level call)
 - **Tool instance** — calls `tool_instance.call(**kwargs)`
 
 Each `step` fires a `step.active_ai` notification with:

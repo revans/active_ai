@@ -259,7 +259,7 @@ module ActiveAI
       names = tools.map { |t| t[:name] }
       dupes = names.select { |n| names.count(n) > 1 }.uniq
       return if dupes.empty?
-      raise ArgumentError,
+      raise ActiveAI::ConfigurationError,
         "#{self.class.name} has duplicate tool names: #{dupes.join(', ')} — " \
         "each tool registered on an agent must have a unique name."
     end

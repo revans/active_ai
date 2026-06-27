@@ -2,7 +2,9 @@ require "erb"
 
 module ActiveAI
   class PromptResolver
-    class PromptNotFound < StandardError; end
+    # Inherits from ActiveAI::MissingPromptError so callers can rescue ActiveAI::Error
+    # to catch both prompt-not-found and other ActiveAI errors in a single clause.
+    class PromptNotFound < ActiveAI::MissingPromptError; end
 
     def initialize(relative_dir, root: nil)
       @relative_dir = relative_dir

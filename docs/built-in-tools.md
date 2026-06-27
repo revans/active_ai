@@ -10,7 +10,7 @@ Fetches a URL, strips HTML/scripts/styles, and returns up to 8,000 characters of
 
 ```ruby
 class ResearchAgent < ApplicationAgent
-  tool ActiveAI::Tools::WebPageReader
+  tools ActiveAI::Tools::WebPageReader
 end
 ```
 
@@ -40,7 +40,7 @@ Searches the web and returns formatted results. Requires a search provider to be
 
 ```ruby
 class ResearchAgent < ApplicationAgent
-  tool ActiveAI::Tools::WebSearch
+  tools ActiveAI::Tools::WebSearch
 end
 ```
 
@@ -57,7 +57,7 @@ ActiveAI.configure do |config|
 end
 ```
 
-If `search_provider` is not configured and the model calls `web_search`, the tool raises `ActiveAI::Tools::NotConfigured`.
+If `search_provider` is not configured and the model calls `web_search`, the tool raises `ActiveAI::Tools::NotConfiguredError`.
 
 ### Supported providers
 

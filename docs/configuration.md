@@ -99,6 +99,20 @@ ActiveAI.config.api_key_for(:anthropic)  # runs the full resolution chain
 
 ---
 
+## Missing API key behavior
+
+Each provider validates the API key at first use (when the HTTP client is first initialized — on the first `stream` or `complete` call). If the key is blank after the full resolution chain, it raises `ActiveAI::ConfigurationError` immediately with a message explaining which environment variable, credentials key, or initializer to set:
+
+```
+ActiveAI::ConfigurationError: No API key configured for :anthropic — set ANTHROPIC_API_KEY in ENV,
+add it to Rails credentials under active_ai.anthropic_api_key, or register an api_key_resolver
+in config/initializers/active_ai.rb
+```
+
+This means a missing key surfaces as a clear configuration error, not a cryptic 401 from the provider API.
+
+---
+
 ## Model priority order
 
 When resolving which model to use for a given agent call, ActiveAI checks in this order and uses the first non-nil value:

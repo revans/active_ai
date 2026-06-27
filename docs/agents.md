@@ -67,15 +67,15 @@ cache :context,      ttl: "5m"   # document body changes more often
 
 Valid block names: `:system`, `:source_files`, `:context`. TTL is advisory metadata passed to the provider — Anthropic respects it for cache invalidation hints.
 
-### `tool`
+### `tools`
 
-Registers a tool (class or instance) the model can invoke:
+Registers a tool (class or instance) the model can invoke. Accepts a single class or an array:
 
 ```ruby
-tool ActiveAI::Tools::WebSearch
-tool ActiveAI::Tools::WebPageReader
-tool MyCustomTool
-tool WriteDocumentSectionTool.new(document: @doc)  # instance with injected context
+tools ActiveAI::Tools::WebSearch
+tools ActiveAI::Tools::WebPageReader
+tools MyCustomTool
+tools [WebSearchTool, WebPageReaderTool]
 ```
 
 Class-registered tools are shared across all instances. For tools that need per-call context (like a document reference), use `instance_tools` instead.
@@ -160,6 +160,14 @@ end
 
 The loop: calls the provider → if tool calls come back, executes them and sends results back → continues until the provider produces a final text response with no more tool calls.
 
+Raises `ActiveAI::ToolLoopError` if the loop exceeds `ActiveAI::Base::MAX_TOOL_ITERATIONS` (default: 20) without producing a final text response. This prevents runaway loops when a model keeps requesting tools indefinitely. Override the constant on your agent class if a legitimate use case needs more turns:
+
+```ruby
+class ResearchAgent < ApplicationAgent
+  MAX_TOOL_ITERATIONS = 40
+end
+```
+
 ### `complete`
 
 Blocking version of `stream`. Runs the agentic loop and returns the full accumulated response string:
@@ -233,10 +241,10 @@ end
 
 ## Convenience class method
 
-`ApplicationAgent` defines `run_with_message` for single-call invocations, used primarily by the Orchestrator:
+`ActiveAI::Base` defines `run` for single-call invocations, used primarily by the Orchestrator:
 
 ```ruby
-WritingAgent.run_with_message("Summarize this document.", document: @doc)
+WritingAgent.run("Summarize this document.", document: @doc)
 # => "Here is a summary..."
 ```
 

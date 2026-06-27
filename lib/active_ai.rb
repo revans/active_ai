@@ -118,7 +118,12 @@ module ActiveAI
     # Raises ActiveAI::ConfigurationError if the provider is unknown.
     def provider_class_for(provider)
       class_name = PROVIDER_CLASSES[provider.to_s]
-      raise ActiveAI::ConfigurationError, "Unknown ActiveAI provider: #{provider}" unless class_name
+      unless class_name
+        raise ActiveAI::ConfigurationError,
+          "Unknown ActiveAI provider: #{provider.inspect} — " \
+          "use #{PROVIDER_CLASSES.keys.join(', ')} or call " \
+          "ActiveAI.register_provider to add a custom provider"
+      end
       class_name.constantize
     end
 
@@ -145,7 +150,12 @@ module ActiveAI
     # Returns an instance of the adapter for a registered vector store name.
     def vector_store_adapter(name = "pgvector")
       class_name = VECTOR_STORE_CLASSES[name.to_s]
-      raise ActiveAI::ConfigurationError, "Unknown vector store: #{name}" unless class_name
+      unless class_name
+        raise ActiveAI::ConfigurationError,
+          "Unknown vector store: #{name.inspect} — " \
+          "use #{VECTOR_STORE_CLASSES.keys.join(', ')} or call " \
+          "ActiveAI.register_vector_store to add a custom adapter"
+      end
       class_name.constantize.new
     end
 

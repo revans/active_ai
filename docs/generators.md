@@ -20,8 +20,11 @@ rails generate active_ai:install
 | `config/initializers/active_ai.rb` | Runtime configuration (API key resolver, search provider) |
 | `app/ai/agents/application_agent.rb` | Base agent class for your app |
 | `app/ai/tools/application_tool.rb` | Base tool class for your app |
+| `app/ai/skills/application_skill.rb` | Base skill class for your app |
+| `app/ai/workflows/application_workflow.rb` | Base workflow class for your app |
+| `app/ai/orchestrators/application_orchestrator.rb` | Base orchestrator class for your app |
 
-The generated `ApplicationAgent` includes `ActiveAI::Orchestratable` and `ActiveAI::Promptable`, sets up `provider_model_defaults`, and defines `run_with_message`.
+The generated `ApplicationAgent` includes `ActiveAI::Orchestratable` and `ActiveAI::Promptable`, sets up `provider_model_defaults`, and defines `build_params` and `initialize`.
 
 ---
 
@@ -48,9 +51,51 @@ rails generate active_ai:tool PriceCheck
 # creates test/ai/tools/price_check_tool_test.rb
 ```
 
-The generated tool includes stubs for `tool_name`, `description`, `parameters`, and `call`.
+The generated tool includes stubs for `tool_name`, `description`, a commented `param` example, and `call`.
 
 **Guard:** The generator refuses to create tools named `web_search` or `read_webpage` — those are the built-in tools. Use `ActiveAI::Tools::WebSearch` and `ActiveAI::Tools::WebPageReader` directly.
+
+---
+
+## `active_ai:skill`
+
+Generates a new skill class and its test file.
+
+```bash
+rails generate active_ai:skill Tone
+# creates app/ai/skills/tone_skill.rb
+# creates test/ai/skills/tone_skill_test.rb
+```
+
+The generated skill includes stubs for `skill_name` and `content`.
+
+---
+
+## `active_ai:workflow`
+
+Generates a new workflow class and its test file.
+
+```bash
+rails generate active_ai:workflow ResearchAndDraft
+# creates app/ai/workflows/research_and_draft_workflow.rb
+# creates test/ai/workflows/research_and_draft_workflow_test.rb
+```
+
+The generated workflow includes a stub `run` method with a commented `step` example.
+
+---
+
+## `active_ai:orchestrator`
+
+Generates a new orchestrator class and its test file.
+
+```bash
+rails generate active_ai:orchestrator Writing
+# creates app/ai/orchestrators/writing_orchestrator.rb
+# creates test/ai/orchestrators/writing_orchestrator_test.rb
+```
+
+The generated orchestrator inherits from `ApplicationOrchestrator` with commented examples for registering agents and workflows.
 
 ---
 

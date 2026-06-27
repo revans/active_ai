@@ -24,14 +24,10 @@ Inherit from `ApplicationTool` (which inherits from `ActiveAI::Tool::Base`):
 
 ```ruby
 class PriceCheckTool < ApplicationTool
-  def self.tool_name   = "price_check"
-  def self.description = "Look up the current price of a product by SKU."
+  tool_name   "price_check"
+  description "Look up the current price of a product by SKU."
 
-  def self.parameters
-    {
-      sku: { type: "string", description: "The product SKU to look up" }
-    }
-  end
+  param :sku, type: :string, description: "The product SKU to look up"
 
   def call(sku:)
     product = Product.find_by(sku: sku)
@@ -41,30 +37,40 @@ class PriceCheckTool < ApplicationTool
 end
 ```
 
-**Required class methods:**
+**Required DSL declarations:**
 
-| Method | Returns | Description |
-|---|---|---|
-| `tool_name` | string | The name the model uses to invoke this tool |
-| `description` | string | What the tool does (shown to the model) |
-| `parameters` | hash | Input schema — keys are parameter names, values describe type/description |
-| `call(**inputs)` | string | The implementation; return value becomes the tool result sent back to the model |
+| DSL | Description |
+|---|---|
+| `tool_name "..."` | The name the model uses to invoke this tool |
+| `description "..."` | What the tool does (shown to the model) |
+| `param :name, type:, description:` | Declares one input parameter |
+| `def call(**inputs)` | The implementation; return value becomes the tool result sent back to the model |
 
-**Parameters schema:**
+**`param` DSL:**
 
-Each parameter entry maps a name to a description object:
+Each `param` call adds one parameter to the tool's input schema:
+
+```ruby
+param :query,   type: :string,  description: "The search query"
+param :limit,   type: :integer, description: "Max results to return"
+param :verbose, type: :boolean, description: "Whether to include extra detail", required: false
+```
+
+`required:` defaults to `true`. Optional parameters are excluded from the `required` array in the JSON schema sent to the provider, letting the model omit them.
+
+**Backwards-compatible hash style:**
+
+The older `def self.parameters` hash style still works if you need it — all keys are treated as required:
 
 ```ruby
 def self.parameters
   {
-    query:    { type: "string",  description: "The search query" },
-    limit:    { type: "integer", description: "Max results to return" },
-    verbose:  { type: "boolean", description: "Whether to include extra detail" }
+    query: { type: "string", description: "The search query" }
   }
 end
 ```
 
-Required parameters are inferred automatically — all declared parameters are required unless you override `to_definition` to add optional handling.
+Prefer the `param` DSL for new tools — it supports optional parameters and produces cleaner code.
 
 ---
 
@@ -75,7 +81,7 @@ Required parameters are inferred automatically — all declared parameters are r
 ```ruby
 class ResearchAgent < ApplicationAgent
   tool PriceCheckTool
-  tool ActiveAI::Tools::WebSearch
+  tools ActiveAI::Tools::WebSearch
 end
 ```
 
@@ -116,13 +122,14 @@ A tool can make its own LLM call using the `complete` method on `Tool::Base`. Th
 
 ```ruby
 class SummarizeTool < ApplicationTool
-  provider :anthropic
-  model "claude-haiku-4-5-20251001"
+  tool_name   "summarize"
+  description "Summarize a block of text."
+
+  provider     :anthropic
+  model        "claude-haiku-4-5-20251001"
   system_prompt "You are a summarizer. Return a 2-sentence summary."
 
-  def self.tool_name   = "summarize"
-  def self.description = "Summarize a block of text."
-  def self.parameters  = { text: { type: "string", description: "Text to summarize" } }
+  param :text, type: :string, description: "Text to summarize"
 
   def call(text:)
     complete(text)

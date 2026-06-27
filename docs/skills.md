@@ -12,17 +12,17 @@ Inherit from `ApplicationSkill` (which inherits from `ActiveAI::Skill::Base`):
 
 ```ruby
 class ActiveVoiceSkill < ApplicationSkill
-  def self.name = "active_voice"
-  def self.content = "Write in active voice. Avoid passive constructions."
+  skill_name "active_voice"
+  content "Write in active voice. Avoid passive constructions."
 end
 ```
 
-**Required class methods:**
+**Required DSL declarations:**
 
-| Method | Returns | Description |
-|---|---|---|
-| `name` | string | Unique identifier for this skill |
-| `content` | string | The instruction text sent to the model |
+| DSL | Description |
+|---|---|
+| `skill_name "..."` | Unique identifier for this skill |
+| `content "..."` | The instruction text sent to the model (static skills) |
 
 ---
 
@@ -32,7 +32,7 @@ end
 
 ```ruby
 class ToneSkill < ApplicationSkill
-  def self.name = "tone"
+  skill_name "tone"
 
   def self.content(message: nil, context: nil, **)
     if context.to_s.include?("formal")

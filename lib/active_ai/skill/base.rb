@@ -56,7 +56,9 @@ module ActiveAI
           self._static_content = text
           self
         else
-          _static_content || raise(NotImplementedError, "#{self}.content is not implemented")
+          _static_content || raise(NotImplementedError,
+            "#{self}.content is not implemented — call `content \"...\"` for static skills " \
+            "or override `def self.content(**kwargs)` for context-aware skills")
         end
       end
 

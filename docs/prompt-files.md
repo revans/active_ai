@@ -138,4 +138,4 @@ In **production**, prompt files are memoized on first read — static at deploy 
 
 ## Missing file
 
-If a prompt file doesn't exist at the expected path, ActiveAI raises `ActiveAI::MissingPrompt` with the expected file path in the message, making it easy to find and create.
+If a prompt file doesn't exist at the expected path, ActiveAI raises `ActiveAI::PromptResolver::PromptNotFound` (a subclass of `ActiveAI::MissingPromptError`) with the expected path in the message. Because the hierarchy is `PromptNotFound < MissingPromptError < ActiveAI::Error`, a single `rescue ActiveAI::Error` clause catches it alongside other ActiveAI errors.
