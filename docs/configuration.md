@@ -2,6 +2,8 @@
 
 ActiveAI is configured in two places: `config/ai.yml` for static per-environment defaults, and `config/initializers/active_ai.rb` for runtime configuration (API keys, search provider).
 
+The library reads both files and exposes `ActiveAI.config`. You write the files — all configuration is yours. The only required entry is a valid API key for your chosen provider, accessible through any of the three resolution methods.
+
 ---
 
 ## config/ai.yml

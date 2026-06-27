@@ -4,6 +4,8 @@ Prompt files are ERB or plain Markdown files that live in your app's `app/ai/` d
 
 Think of them like view templates for the AI layer: `app/views/` is to HTML what `app/ai/agents/prompts/` is to system messages.
 
+The library handles file resolution, ERB rendering with instance context, `partial`/`skill` helpers, and dev/prod caching lifecycle. You write the `.md.erb` files.
+
 ---
 
 ## File locations

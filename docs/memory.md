@@ -4,6 +4,15 @@ The memory system lets agents carry knowledge from past conversations into futur
 
 Think of it like an assistant who takes notes after every meeting. Before the next meeting, they read their notes and walk in already knowing your preferences, the open questions, and the decisions already made. The notes don't dictate what happens next — they're context, not instructions.
 
+| Library handles | You implement |
+|---|---|
+| All 4 jobs and 3 agents (scaffolded, functional after install) | `after_stream_memory_persist` hook in your controller |
+| `Memory.persist`, `Memory.recall`, system prompt injection | Real embedding vector in `EmbedJob#embedding_vector` (stub by default) |
+| Specificity scoring, token budget enforcement | Schedule `TierJob` and `ConsolidateJob` (they don't run themselves) |
+| `recall_memory` DSL on agents | `memory_recall_context` if scoping recall to a subject |
+
+**Nothing persists until you wire the controller hook.** Everything else is automatic once that hook enqueues the first job.
+
 ---
 
 ## Why it's more complex than it looks

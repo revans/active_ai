@@ -2,6 +2,10 @@
 
 A provider wraps one LLM API. Providers handle request formatting, streaming, tool call extraction, and usage reporting. The agent declares which provider to use; the provider does the wire-level work.
 
+**For built-in providers (Anthropic, OpenAI, xAI):** you declare `provider :anthropic` on the agent. That's it — the library handles everything else.
+
+**For custom providers:** you implement the `Provider::Base` interface (see below) and call `ActiveAI.register_provider`. The library handles routing, key resolution, and the agentic loop.
+
 ---
 
 ## Built-in providers

@@ -1,6 +1,12 @@
 # Built-in Tools
 
-ActiveAI ships two tools that are available in any agent without generating custom code. Register them with `tool` at the class level.
+ActiveAI ships two tools that are available in any agent without generating custom code. Register them with `tools` at the class level.
+
+| Library handles | You configure |
+|---|---|
+| `WebPageReader` — full SSRF protection, HTML stripping, size limit | Nothing — no key or config required |
+| `WebSearch` — routing to search adapter, result formatting | `search_provider` and API key in `config/initializers/active_ai.rb` |
+| `SearchAdapter` base class for custom backends | Custom adapter class + `SearchAdapter.register` if using a non-built-in provider |
 
 ---
 

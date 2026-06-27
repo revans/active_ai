@@ -4,6 +4,13 @@ Tools are executable functions the model can invoke mid-conversation. The model 
 
 Think of a tool like a database query the model can issue: you define the query interface (name, inputs, what it returns), and the model decides when to run it.
 
+| Library handles | You implement |
+|---|---|
+| Invocation decision (model chooses when to call the tool) | Tool class with `tool_name`, `description`, `param`, `call` |
+| Dispatch, result injection into conversation, error recovery | `call(**inputs)` — return a string (never raise) |
+| JSON schema generation from `param` DSL | `instance_tools` on the agent if tool needs per-call state |
+| `tool_call.active_ai` instrumentation | — |
+
 ---
 
 ## Generating a tool

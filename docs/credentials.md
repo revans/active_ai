@@ -2,6 +2,8 @@
 
 ActiveAI ships a database-backed credential store for apps that need to manage API keys per user, account, or team — rather than globally via ENV. Keys are encrypted at rest using Rails' built-in encrypted attribute support.
 
+The library provides the `Credential` model, `HasCredentials` mixin, `ai_credentials` migration, and `api_key_for` resolution. You include `HasCredentials` on your owner model, run the migration, and wire the resolver in the initializer.
+
 ---
 
 ## When to use this

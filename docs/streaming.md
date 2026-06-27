@@ -4,6 +4,14 @@
 
 Think of it like ActionController::Live, but with the agent lifecycle (tool calls, memory hooks, cleanup) already handled.
 
+| Library handles | You implement |
+|---|---|
+| SSE headers, event serialization, `[DONE]` sentinel | `include Streamable` in controller, call `stream_agent(agent)` |
+| Client disconnect — partial response preserved | `after_stream` block — persisting the full response |
+| `stream.active_ai` and `tool_call.active_ai` events | `after_stream_memory_persist` override if enqueuing memory jobs |
+
+The memory persist hook is a **no-op by default**. If you don't override `after_stream_memory_persist`, nothing is enqueued — memory never persists. See [memory.md](memory.md).
+
 ---
 
 ## Setup

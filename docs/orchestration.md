@@ -4,6 +4,12 @@ An Orchestrator is a meta-agent: it uses an LLM to decide *which* agent or workf
 
 Use an Orchestrator when the routing decision itself is dynamic — when you have multiple agents with different specialties and want the model to pick the right one. Use a Workflow when the sequence is fixed.
 
+| Library handles | You implement |
+|---|---|
+| LLM routing, meta-tool schema generation, agentic loop | Orchestrator class with registered `agent`/`workflow`/`tools` |
+| Dispatching to agents and workflows via `run` | `context_for` or `context:` lambda for domain object injection |
+| `step.active_ai` notifications for each dispatch | System prompt and model configuration |
+
 ---
 
 ## Defining an orchestrator

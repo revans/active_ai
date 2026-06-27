@@ -4,6 +4,12 @@ Skills are behavioral instruction blocks. They tell the model *how* to behave â€
 
 Think of a skill like a standing order to an employee: "Always send replies in plain English, no bullet points." The order sits at the top of every conversation without the employee needing to be reminded each time.
 
+| Library handles | You implement |
+|---|---|
+| Injection as separate system blocks | Skill class with `skill_name` and `content` |
+| Per-block prompt caching (Anthropic) | `def self.content(**kwargs)` for context-sensitive behavior |
+| Skill context (`{ message:, context: }`) passed at call time | â€” |
+
 ---
 
 ## Defining a skill

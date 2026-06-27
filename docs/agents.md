@@ -4,6 +4,13 @@ An agent is a class that wraps one LLM conversation context. It declares its pro
 
 Think of it like a database connection: the connection pool configuration lives on the class, and each instance is a single connection used for one conversation turn.
 
+| Library handles | You implement |
+|---|---|
+| Agentic loop — stream → tool dispatch → continue until final response | Agent class inheriting `ApplicationAgent` |
+| Provider routing, streaming, token counting, instrumentation | Class-level DSL: `provider`, `model`, `tools`, `skills`, etc. |
+| `complete` accumulation, `run` class method, callbacks | `initialize` when you need to inject domain objects |
+| Tool execution and error recovery | `instance_tools` when tools need per-call context |
+
 ---
 
 ## Generating an agent

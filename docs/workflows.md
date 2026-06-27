@@ -4,6 +4,13 @@ A workflow coordinates multiple agent calls in a defined sequence without making
 
 Use a workflow when you need a fixed pipeline: research → draft → review. Use an Orchestrator when the routing logic itself should be decided by a model at runtime.
 
+| Library handles | You implement |
+|---|---|
+| `step` dispatch — agent calls, tool calls, notifications | Workflow class with `run(input)` method |
+| `parallel_step` — threading, result ordering | Sequence and step ordering logic |
+| `step.active_ai` and `parallel_step.active_ai` notifications | Thread-local state (`Current.*`) when using `parallel_step` |
+| Passing step output (string) to the next call | — |
+
 ---
 
 ## Defining a workflow
