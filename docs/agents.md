@@ -100,6 +100,31 @@ Provides a human-readable description of what the agent does. Required when regi
 description "Drafts, edits, and structures written content inside a document."
 ```
 
+### `before_complete` / `after_complete`
+
+Lifecycle hooks that fire around the `complete` call (not around `stream` directly — `complete` wraps `stream`). Useful for logging, metrics, validation, or broadcasting:
+
+```ruby
+class WritingAgent < ApplicationAgent
+  before_complete :validate_inputs
+  after_complete  :broadcast_result
+
+  private
+
+  def validate_inputs
+    raise ArgumentError, "message is required" if @message.blank?
+  end
+
+  def broadcast_result
+    # called after the full agentic loop completes
+  end
+end
+```
+
+Accepts method names (symbols), blocks, or procs — the same interface as any `ActiveSupport::Callbacks` hook. Multiple callbacks can be declared; they fire in declaration order for `before_complete` and reverse order for `after_complete`.
+
+These hooks do **not** fire when calling `stream` directly — only through `complete`. If you need to instrument the stream path, subscribe to the `stream.active_ai` notification instead (see [streaming.md](streaming.md)).
+
 ### `recall_memory`
 
 Opts the agent into the memory system. Retrieved memories are prepended to the system prompt as soft-signal context:

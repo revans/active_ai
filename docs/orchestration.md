@@ -41,9 +41,29 @@ Each registered class must:
 
 ---
 
-## `context_for`
+## Registering regular tools
 
-Override to supply per-class runtime context when the orchestrator dispatches to an agent or workflow:
+An Orchestrator can also register regular tools (like `WebSearch`) alongside agent and workflow meta-tools. The model can call any of them mid-turn:
+
+```ruby
+class ResearchOrchestrator < ApplicationOrchestrator
+  tools ActiveAI::Tools::WebSearch        # regular tool — immediate execution
+  agent FactCheckAgent                    # meta-tool — runs the full agent
+  workflow ResearchAndDraftWorkflow       # meta-tool — runs the full workflow
+end
+```
+
+Regular tools are registered with the inherited `tools` DSL from `ActiveAI::Base`. Agent and workflow meta-tools are registered with `agent` and `workflow`.
+
+---
+
+## Context: two approaches
+
+The Orchestrator needs to supply domain objects (documents, users, records) to the agents it dispatches to. There are two ways.
+
+### `context_for` method
+
+Override to supply per-class context from the orchestrator's own state:
 
 ```ruby
 class WritingOrchestrator < ApplicationOrchestrator
@@ -60,7 +80,25 @@ class WritingOrchestrator < ApplicationOrchestrator
 end
 ```
 
-`context_for` is merged into the `run(message, **context)` call when the Orchestrator dispatches to that agent or workflow. This is how you inject domain objects (documents, projects, users) without the orchestrator needing to know about them directly.
+### `context:` lambda on registration
+
+Pass a lambda directly at registration time. It is `instance_exec`'d on the orchestrator at dispatch time, so it has access to instance variables:
+
+```ruby
+class WritingOrchestrator < ApplicationOrchestrator
+  def initialize(message:, document:)
+    super(message: message)
+    @document = document
+  end
+
+  agent WritingAgent,  context: -> { { document: @document } }
+  agent ResearchAgent  # no context: lambda — falls back to context_for
+end
+```
+
+The `context:` lambda takes precedence over `context_for` for that class. Use `context_for` when context logic is shared or conditional across many agents; use `context:` when each agent has a simple, distinct need.
+
+`context_for` is merged into the `run(message, **context)` call when the Orchestrator dispatches. This is how you inject domain objects without the orchestrator needing to forward them through the model.
 
 ---
 

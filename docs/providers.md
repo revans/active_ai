@@ -138,9 +138,13 @@ After registration, `provider :gemini` works in any agent class.
 | Method | Required? | Description |
 |---|---|---|
 | `stream(params, &block)` | Yes | Stream a response; yield text chunks as Strings |
-| `model_defaults` | Yes | Array of model ID strings (fallback when API unreachable) |
-| `fetch_models(api_key:)` | No | Hit provider API for live model list; return array or nil |
-| `call(params)` | No | Blocking call; default implementation runs `stream` and accumulates |
-| `last_tool_calls` | No | Override if provider returns structured tool calls |
-| `last_usage` | No | Override to expose token usage from last call |
-| `last_assistant_content` | No | Override for agentic loop continuation |
+| `model_defaults` | Yes (class) | Array of model ID strings (fallback when API unreachable) |
+| `fetch_models(api_key:)` | No (class) | Hit provider's `/models` endpoint; return array or nil |
+| `call(params)` | No | Blocking call; base implementation raises NotImplementedError |
+| `last_tool_calls` | No | Tool calls extracted from the last response; base returns `[]` |
+| `last_usage` | No | Token usage hash from the last call; base returns `nil` |
+| `last_assistant_content` | No | Raw assistant content array from the last turn; base returns `[]` |
+| `format_assistant_turn(content, tool_calls)` | No | Formats the assistant message to append to history before the tool result. **Must override if your provider uses a different wire format for tool calls.** Default is Anthropic format (content array). OpenAI requires `{ role: "assistant", content: nil, tool_calls: [...] }`. |
+| `format_tool_result_messages(tool_results)` | No | Formats tool results as messages to append to history. **Must override if your provider expects a different structure.** Default bundles all results in one `role: "user"` message (Anthropic). OpenAI requires one `role: "tool"` message per result. |
+
+`format_assistant_turn` and `format_tool_result_messages` are only called during the agentic loop (when the model returns tool calls). If your custom provider doesn't support tools, you can skip them. If it does, wrong formats here cause silent 400 errors from the provider API — override both to match your provider's wire format.
