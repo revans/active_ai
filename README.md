@@ -10,7 +10,7 @@ Without ActiveAI, LLM calls end up scattered across controllers and service obje
 
 ## Origin
 
-ActiveAI was extracted from [writer-v3](https://github.com/revans/writer-v3), a personal writing application built around a human-first philosophy: the writer owns the work; AI assists with editing, suggests improvements, and explains its reasoning — but never drives.
+ActiveAI was extracted from writer-v3, a personal writing application built around a human-first philosophy: the writer owns the work; AI assists with editing, suggests improvements, and explains its reasoning — but never drives.
 
 The writer-v3 premise is that AI is most useful when it makes a writer *better*, not when it writes *for* them. That means the AI's role is to surface what isn't working, propose specific changes, and explain why — so the writer learns from every session rather than just accepting output. The agent architecture in this gem grew out of making that feedback loop feel fast, structured, and genuinely useful rather than generic.
 
