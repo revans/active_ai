@@ -24,7 +24,7 @@ rails generate active_ai:install
 | `app/ai/workflows/application_workflow.rb` | Base workflow class for your app |
 | `app/ai/orchestrators/application_orchestrator.rb` | Base orchestrator class for your app |
 
-The generated `ApplicationAgent` includes `ActiveAI::Orchestratable` and `ActiveAI::Promptable`, sets up `provider_model_defaults`, and defines `build_params` and `initialize`.
+The generated `ApplicationAgent` includes `ActiveAI::Orchestratable` and `ActiveAI::Promptable`, sets up `provider_model_defaults`, and defines `build_messages` and `initialize`. Framework behavior (`build_params`, `skill_context`, history validation) lives in `ActiveAI::Agent::Base` and is inherited automatically.
 
 ---
 
@@ -74,7 +74,7 @@ rails generate active_ai:prompt orchestrator writing
 
 **Valid namespaces:** `agent`, `skill`, `orchestrator`, `workflow`, `tool`, `memory`
 
-The generator creates the directory if it doesn't exist and stubs the file with placeholder content. Files for `skill` and `orchestrator` namespaces include a note that they render without instance context — no `@ivars` or instance methods. All other namespaces generate a stub with instance-context hints.
+The generator creates the directory if it doesn't exist and stubs the file with placeholder content. Files for the `skill` namespace include a note that they render without instance context — no `@ivars` or instance methods, since skill content is evaluated at class load time. All other namespaces (including `orchestrator`) generate a stub with instance-context hints.
 
 ---
 

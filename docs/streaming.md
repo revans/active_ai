@@ -98,10 +98,10 @@ class MessagesController < ApplicationController
 
   def after_stream_memory_persist(agent, full_response)
     ActiveAIMemoryPersistJob.perform_later(
-      agent_class:  agent.class.name,
-      subject_type: @document.class.name,
-      subject_id:   @document.id,
-      response:     full_response
+      user:          Current.user,
+      agent_class:   agent.class.name,
+      subject:       @document,
+      full_response: full_response
     )
   end
 end

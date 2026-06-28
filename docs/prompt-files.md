@@ -89,19 +89,27 @@ class ApplicationAgent < ActiveAI::Agent::Base
 end
 ```
 
-Then load a prompt inside `build_params` or `initialize`:
+Then override `build_system_prompt` in your agent to load the file:
 
 ```ruby
 class WritingAgent < ApplicationAgent
   private
 
-  def build_params
-    super.merge(system: prompt_file(:writing))
+  def build_system_prompt
+    prompt_file(:writing)
   end
 end
 ```
 
 `prompt_file(:writing)` loads `app/ai/agents/prompts/writing.md.erb` (or `.md`), renders it with the current agent instance as context, and returns the rendered string.
+
+To layer the file prompt on top of a base system prompt (e.g., one declared with `system_prompt` on the class), call `super`:
+
+```ruby
+def build_system_prompt
+  [prompt_file(:writing), super].select(&:present?).join("\n\n")
+end
+```
 
 ---
 
