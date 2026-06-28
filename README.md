@@ -4,6 +4,8 @@ ActiveAI is a Rails-first AI agent library. It does for LLM calls what ActionMai
 
 Without ActiveAI, LLM calls end up scattered across controllers and service objects, each reinventing how to format messages, handle tool calls, route to the right provider, and stream responses. ActiveAI centralizes that plumbing into one class hierarchy so individual agent classes stay declarative and thin.
 
+> **Status: Active development.** APIs, DSLs, generator output, and memory pipeline internals are subject to breaking changes between versions. This gem is in active use and testing — production deployment is at your own risk.
+
 ---
 
 ## How it maps to Rails conventions
