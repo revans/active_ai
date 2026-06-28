@@ -1,7 +1,18 @@
 class <%= class_name %>Skill < ApplicationSkill
   skill_name "<%= file_name %>"
+
+  # Inline content (simple):
   content <<~CONTENT
     # TODO: describe what this skill adds to the agent's behavior.
     # This text is appended to the system prompt at call time.
   CONTENT
+
+  # File-based content (complex prompts):
+  # prompt_file :<%= file_name %>
+  # → app/ai/skills/prompts/<%= file_name %>.md.erb
+
+  # Dynamic content (varies by call context):
+  # def self.content(message: nil, context: nil, **)
+  #   "Behavior instructions that depend on #{context}."
+  # end
 end

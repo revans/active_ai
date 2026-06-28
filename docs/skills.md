@@ -28,7 +28,31 @@ end
 | DSL | Description |
 |---|---|
 | `skill_name "..."` | Unique identifier for this skill |
-| `content "..."` | The instruction text sent to the model (static skills) |
+| `content "..."` | Inline instruction text (static skills) |
+| `prompt_file :name` | Loads content from `app/ai/skills/prompts/name.md.erb` at class load time |
+
+---
+
+## File-based skill content
+
+For longer instructions that benefit from being maintained as a separate file, use `prompt_file` instead of inline `content`:
+
+```ruby
+class EditingGuidelinesSkill < ApplicationSkill
+  skill_name "editing_guidelines"
+  prompt_file :editing_guidelines
+  # → app/ai/skills/prompts/editing_guidelines.md.erb
+end
+```
+
+The file is rendered once at class load time (on every reload in development, once in production). It renders without instance context — no `@ivars` or instance methods are available in the ERB template, only static content.
+
+Use `prompt_file` when:
+- The instruction runs longer than a few sentences
+- You want syntax highlighting and line-by-line editing in a `.md.erb` file
+- The content is too long to maintain cleanly inline in Ruby
+
+Use inline `content` for short, simple directives. Use dynamic `def self.content(**kwargs)` when the instructions must vary at runtime.
 
 ---
 

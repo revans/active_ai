@@ -41,6 +41,23 @@ module ActiveAI
     include ActiveAI::Concerns::Instrumentable
 
     class_attribute :_meta_tool_factories, default: []
+    class_attribute :_system_prompt_file,  default: nil
+
+    # Loads the system prompt from a file at call time rather than inline.
+    # Renders app/ai/orchestrators/prompts/<name>.md.erb (or .md) without instance context.
+    #
+    #   class WritingOrchestrator < ApplicationOrchestrator
+    #     provider :anthropic
+    #     model "claude-opus-4-8", max_tokens: 8096
+    #     prompt_file :writing
+    #
+    #     agent EditingAgent,   description: "Edits and refines prose"
+    #     agent ResearchAgent,  description: "Researches topics"
+    #   end
+    #
+    def self.prompt_file(name)
+      self._system_prompt_file = name
+    end
 
     # Register an agent as a callable meta-tool. Must include Orchestratable.
     # description: falls back to the agent class's declared description if not provided.
@@ -102,13 +119,21 @@ module ActiveAI
       {
         model:        resolved_model,
         max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
-        system:       self.class._system_prompt.to_s,
+        system:       resolved_system_prompt,
         skills:       self.class._skills.map { |skill| skill.respond_to?(:to_definition) ? skill.to_definition : skill },
         source_files: [],
         messages:     [ { role: "user", content: @message } ],
         cacheable:    self.class._cache_config,
         tools:        all_tools.map(&:to_definition)
       }
+    end
+
+    def resolved_system_prompt
+      if (file = self.class._system_prompt_file)
+        ActiveAI.orchestrator.prompt(file)
+      else
+        self.class._system_prompt.to_s
+      end
     end
 
     class << self

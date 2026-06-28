@@ -8,7 +8,7 @@ Use an Orchestrator when the routing decision itself is dynamic — when you hav
 |---|---|
 | LLM routing, meta-tool schema generation, agentic loop | Orchestrator class with registered `agent`/`workflow`/`tools` |
 | Dispatching to agents and workflows via `run` | `context_for` or `context:` lambda for domain object injection |
-| `step.active_ai` notifications for each dispatch | System prompt and model configuration |
+| `step.active_ai` notifications for each dispatch | System prompt — inline `system_prompt` or file-based `prompt_file` |
 
 ---
 
@@ -28,6 +28,27 @@ end
 ```
 
 Each registered agent and workflow becomes a meta-tool the orchestrator's model can call. The orchestrator runs an agentic loop: the model calls a meta-tool → the orchestrator runs that agent/workflow → the result comes back as the tool result → the model produces a final response.
+
+---
+
+## System prompts
+
+Because an orchestrator decides routing, its system prompt matters. It's where you describe the domain, the agents' specialties, the routing rules, and the conditions under which one agent should be preferred over another.
+
+**Inline** — for simple orchestrators:
+
+```ruby
+system_prompt "You route writing requests. Use WritingAgent for prose, ResearchAgent for factual questions."
+```
+
+**File-based** — for complex routing logic or conditional branches:
+
+```ruby
+prompt_file :writing
+# → app/ai/orchestrators/prompts/writing.md.erb
+```
+
+The file is rendered without instance context at each call (ERB templates that reference `@ivars` or methods will not work here — use static conditional logic in the template). Use `.md.erb` when the routing rules are long enough to be maintained separately from the class definition.
 
 ---
 

@@ -57,9 +57,22 @@ module ActiveAI
           self
         else
           _static_content || raise(NotImplementedError,
-            "#{self}.content is not implemented — call `content \"...\"` for static skills " \
+            "#{self}.content is not implemented — call `content \"...\"` for static skills, " \
+            "`prompt_file :name` to load from app/ai/skills/prompts/, " \
             "or override `def self.content(**kwargs)` for context-aware skills")
         end
+      end
+
+      # Loads skill content from a prompt file at class definition time.
+      # Renders app/ai/skills/prompts/<name>.md.erb (or .md) without instance context.
+      #
+      #   class ToneSkill < ApplicationSkill
+      #     skill_name "tone"
+      #     prompt_file :tone
+      #   end
+      def self.prompt_file(name)
+        self._static_content = ActiveAI.skill.prompt(name)
+        self
       end
 
       # Returns the canonical skill hash. Passes context to active skills that

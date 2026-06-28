@@ -1,7 +1,13 @@
 class <%= class_name %>Orchestrator < ApplicationOrchestrator
   provider :anthropic
   model "claude-sonnet-4-6", max_tokens: 4096
+
+  # Inline system prompt (simple):
   system_prompt "You coordinate tasks."
+
+  # File-based system prompt (complex routing logic, conditional branches):
+  # prompt_file :<%= file_name %>
+  # → app/ai/orchestrators/prompts/<%= file_name %>.md.erb
 
   # Register agents and workflows:
   # agent SomeAgent,    description: "What this agent does"
