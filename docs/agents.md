@@ -320,16 +320,18 @@ end
 
 `ActiveAI::Agent::Base` builds the system prompt via `build_system_prompt`. The default implementation returns `(@system.presence || self.class._system_prompt).to_s` — preferring the instance-level `system:` kwarg if passed, falling back to the class-level `system_prompt` DSL.
 
-Override this in `ApplicationAgent` to inject app-level context (like memory recall) into the system prompt for all agents:
+Override this in `ApplicationAgent` to inject app-level context into the system prompt for all agents. The canonical example is memory recall — prepend a recalled memory block before the agent's own system prompt:
 
 ```ruby
 private
 
 def build_system_prompt
   base   = super  # instance system: kwarg or class-level system_prompt DSL
-  memory = recalled_memory_block
+  memory = recalled_memory_block  # returns "" if no memory config or recall fails
   [memory, base].select(&:present?).join("\n\n")
 end
 ```
 
-Individual agents can override it further. The hook is designed for layered composition — each level calls `super` and adds its own block.
+`recalled_memory_block` is a method you implement in `ApplicationAgent` using `ActiveAI::Memory::Formatter` — it is not provided by the gem. See [memory.md](memory.md) for the full wiring.
+
+Individual agents can override `build_system_prompt` further. The hook is designed for layered composition — each level calls `super` and adds its own block above it.
