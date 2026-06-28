@@ -1,7 +1,7 @@
 # ActiveAI — Rails-first AI conversation library.
 # Analogous to ActionMailer for email or ActiveJob for background tasks.
 #
-#   ActiveAI::Base          ←→  ActionMailer::Base
+#   ActiveAI::Agent::Base   ←→  ActionMailer::Base
 #   ActiveAI::Provider      ←→  ActionMailer delivery method
 #   ActiveAI.config         ←→  Rails.application.config.action_mailer
 #   config/ai.yml           ←→  config/database.yml
@@ -37,12 +37,12 @@ require "active_ai/provider/base"
 require "active_ai/provider/anthropic"
 require "active_ai/provider/openai"
 require "active_ai/provider/xai"
-require "active_ai/base"
+require "active_ai/agent/base"
 require "active_ai/promptable"
 require "active_ai/orchestratable"
 require "active_ai/concerns/instrumentable"
-require "active_ai/workflow"
-require "active_ai/orchestrator"
+require "active_ai/workflow/base"
+require "active_ai/orchestrator/base"
 require "active_ai/concerns/streamable"
 require "active_ai/prompt_render_context"
 require "active_ai/prompt_resolver"
@@ -88,14 +88,14 @@ module ActiveAI
       registry[klass.name] = klass
     end
 
-    # All registered agent classes (ActiveAI::Base descendants, excluding orchestrators).
+    # All registered agent classes (ActiveAI::Agent::Base descendants, excluding orchestrators).
     def agents
-      registry.values.select { |k| k < ActiveAI::Base && !(k < ActiveAI::Orchestrator) }
+      registry.values.select { |k| k < ActiveAI::Agent::Base && !(k < ActiveAI::Orchestrator::Base) }
     end
 
-    # All registered workflow classes (ActiveAI::Workflow descendants).
+    # All registered workflow classes (ActiveAI::Workflow::Base descendants).
     def workflows
-      registry.values.select { |k| k < ActiveAI::Workflow }
+      registry.values.select { |k| k < ActiveAI::Workflow::Base }
     end
 
     # All registered tool classes (ActiveAI::Tool::Base descendants).
