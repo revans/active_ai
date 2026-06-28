@@ -15,7 +15,7 @@ Use a workflow when you need a fixed pipeline: research → draft → review. Us
 
 ## Defining a workflow
 
-Inherit from `ApplicationWorkflow` (which inherits from `ActiveAI::Workflow`):
+Inherit from `ApplicationWorkflow` (which inherits from `ActiveAI::Workflow::Base`):
 
 ```ruby
 class ResearchAndDraftWorkflow < ApplicationWorkflow

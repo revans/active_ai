@@ -83,7 +83,7 @@ ActiveAI checks for files in this order:
 Include `ActiveAI::Promptable` (done automatically via `ApplicationAgent`) and declare the namespace:
 
 ```ruby
-class ApplicationAgent < ActiveAI::Base
+class ApplicationAgent < ActiveAI::Agent::Base
   include ActiveAI::Promptable
   prompt_namespace :agent
 end

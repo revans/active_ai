@@ -20,7 +20,7 @@ rails generate active_ai:agent Writing
 # creates app/ai/agents/writing_agent.rb
 ```
 
-Generated agents inherit from `ApplicationAgent`, which is your app-level base class (itself inheriting from `ActiveAI::Base`).
+Generated agents inherit from `ApplicationAgent`, which is your app-level base class (itself inheriting from `ActiveAI::Agent::Base`).
 
 ---
 
@@ -192,7 +192,7 @@ end
 
 The loop: calls the provider → if tool calls come back, executes them and sends results back → continues until the provider produces a final text response with no more tool calls.
 
-Raises `ActiveAI::ToolLoopError` if the loop exceeds `ActiveAI::Base::MAX_TOOL_ITERATIONS` (default: 20) without producing a final text response. This prevents runaway loops when a model keeps requesting tools indefinitely. Override the constant on your agent class if a legitimate use case needs more turns:
+Raises `ActiveAI::ToolLoopError` if the loop exceeds `ActiveAI::Agent::Base::MAX_TOOL_ITERATIONS` (default: 20) without producing a final text response. This prevents runaway loops when a model keeps requesting tools indefinitely. Override the constant on your agent class if a legitimate use case needs more turns:
 
 ```ruby
 class ResearchAgent < ApplicationAgent
@@ -273,7 +273,7 @@ end
 
 ## Convenience class method
 
-`ActiveAI::Base` defines `run` for single-call invocations, used primarily by the Orchestrator:
+`ActiveAI::Agent::Base` defines `run` for single-call invocations, used primarily by the Orchestrator:
 
 ```ruby
 WritingAgent.run("Summarize this document.", document: @doc)
@@ -281,3 +281,55 @@ WritingAgent.run("Summarize this document.", document: @doc)
 ```
 
 Internally this calls `new(message:, **context).complete`.
+
+---
+
+## Required override: `build_messages`
+
+`ActiveAI::Agent::Base` defines `build_messages` as `raise NotImplementedError`. Your `ApplicationAgent` must implement it. It receives no arguments and must return an array of `{ role:, content: }` hashes:
+
+```ruby
+private
+
+def build_messages
+  messages = []
+
+  if @context.present?
+    messages << { role: "user",      content: @context.to_s }
+    messages << { role: "assistant", content: "Understood. I have read the full document. What would you like to discuss?" }
+  end
+
+  @history.each do |msg|
+    content = msg.content.to_s
+    next if content.blank?
+    messages << { role: msg.role.to_s, content: content }
+  end
+
+  messages << { role: "user", content: @message } if @message.present?
+  messages
+end
+```
+
+`build_messages` is where you translate your app's `Message` records into the wire format the provider expects. The gem cannot implement this because it has no knowledge of your `Message` model's schema (`msg.role`, `msg.content`, attached file fields, etc.).
+
+`validate_history!` runs automatically before `build_messages` is called — you do not need to validate role alternation yourself.
+
+---
+
+## Optional override: `build_system_prompt`
+
+`ActiveAI::Agent::Base` builds the system prompt via `build_system_prompt`. The default implementation returns `(@system.presence || self.class._system_prompt).to_s` — preferring the instance-level `system:` kwarg if passed, falling back to the class-level `system_prompt` DSL.
+
+Override this in `ApplicationAgent` to inject app-level context (like memory recall) into the system prompt for all agents:
+
+```ruby
+private
+
+def build_system_prompt
+  base   = super  # instance system: kwarg or class-level system_prompt DSL
+  memory = recalled_memory_block
+  [memory, base].select(&:present?).join("\n\n")
+end
+```
+
+Individual agents can override it further. The hook is designed for layered composition — each level calls `super` and adds its own block.

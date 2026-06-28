@@ -12,7 +12,7 @@ Without ActiveAI, LLM calls end up scattered across controllers and service obje
 
 | ActiveAI | Rails analogy |
 |---|---|
-| `ActiveAI::Base` | `ActionMailer::Base` |
+| `ActiveAI::Agent::Base` | `ActionMailer::Base` |
 | `ApplicationAgent` | `ApplicationMailer` |
 | `WritingAgent` | `UserMailer` |
 | `ActiveAI::Provider::Anthropic` | SMTP delivery method |
