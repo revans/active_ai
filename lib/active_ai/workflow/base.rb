@@ -40,8 +40,24 @@ module ActiveAI
       # Class-level convenience. Use new(...).run(input) when the workflow needs
       # injected constructor state (e.g. a document or current user).
       # The ** absorbs any context kwargs passed by an Orchestrator via context_for.
+      # Fires active_ai.workflow.run — direct new(...).run(input) calls bypass this.
       def self.run(input, **)
-        new.run(input)
+        caller_ctx = ActiveAI::Instrumentation.current_caller
+        payload    = {
+          workflow_class: name,
+          input:          input.to_s,
+          caller_type:    caller_ctx&.dig(:type),
+          caller_name:    caller_ctx&.dig(:name)
+        }
+        result = nil
+        ActiveSupport::Notifications.instrument("active_ai.workflow.run", payload) do |notif|
+          ActiveAI::Instrumentation.with_caller(type: :workflow, name: name) do
+            result         = new.run(input)
+            notif[:output] = result.to_s
+            result
+          end
+        end
+        result
       end
 
       # Override in subclasses. Call step() or parallel_step() to coordinate work.
@@ -97,7 +113,7 @@ module ActiveAI
         step_names = entries.map { |(target, _)| target.is_a?(Class) ? target.name : target.class.name }
         results    = nil
 
-        ActiveSupport::Notifications.instrument("parallel_step.active_ai", {
+        ActiveSupport::Notifications.instrument("active_ai.workflow.parallel_step", {
           workflow_class: self.class.name,
           steps:          step_names,
           count:          entries.length

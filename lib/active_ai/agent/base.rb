@@ -144,19 +144,21 @@ module ActiveAI
 
         @last_tool_call_results = []
         params   = build_params
+        @last_sent_messages  = params[:messages]
+        @last_system_prompt  = params[:system]
         messages = params[:messages]
 
         validate_tool_names!(params[:tools])
 
         payload = {
           agent_class: self.class.name,
-          provider:           resolved_provider,
-          model:              resolved_model
+          provider:    resolved_provider,
+          model:       resolved_model
         }
 
         iterations = 0
 
-        ActiveSupport::Notifications.instrument("stream.active_ai", payload) do |notif|
+        ActiveSupport::Notifications.instrument("active_ai.agent.stream", payload) do |notif|
           loop do
             iterations += 1
             if iterations > MAX_TOOL_ITERATIONS
@@ -186,13 +188,26 @@ module ActiveAI
       end
 
       # Blocking call — runs the same agentic loop as stream, accumulates the full response string.
+      # Fires active_ai.agent.complete (or active_ai.orchestrator.route for Orchestrator subclasses).
       # before_complete and after_complete callbacks fire around the stream loop.
       def complete
-        run_callbacks(:complete) do
-          accumulated_text = String.new
-          stream { |event| accumulated_text << event if event.is_a?(String) }
-          accumulated_text
+        caller_ctx = ActiveAI::Instrumentation.current_caller
+        payload    = build_complete_payload(caller_ctx)
+        result     = nil
+
+        ActiveSupport::Notifications.instrument(complete_event_name, payload) do |notif|
+          ActiveAI::Instrumentation.with_caller(type: caller_type_sym, name: self.class.name) do
+            run_callbacks(:complete) do
+              accumulated_text = String.new
+              stream { |event| accumulated_text << event if event.is_a?(String) }
+              result = accumulated_text
+              finalize_complete_notification(notif, accumulated_text)
+              result
+            end
+          end
         end
+
+        result
       end
 
       # Usage data from the last call — full breakdown including cache tokens.
@@ -281,10 +296,13 @@ module ActiveAI
         registered_tool = all_tools.find { |candidate| candidate.tool_name == tool_call[:name] }
         call_result     = nil
 
-        ActiveSupport::Notifications.instrument("tool_call.active_ai", {
-          agent_class: self.class.name,
+        caller_ctx = ActiveAI::Instrumentation.current_caller
+        ActiveSupport::Notifications.instrument("active_ai.tool.call", {
           tool_name:   tool_call[:name],
-          input:       tool_call[:input]
+          tool_class:  registered_tool.is_a?(Class) ? registered_tool.name : registered_tool&.class&.name,
+          input:       tool_call[:input],
+          caller_type: caller_ctx&.dig(:type),
+          caller_name: caller_ctx&.dig(:name)
         }) do |notification|
           call_result = begin
             if registered_tool
@@ -318,6 +336,36 @@ module ActiveAI
         raise ActiveAI::ConfigurationError,
           "#{self.class.name} has duplicate tool names: #{dupes.join(', ')} — " \
           "each tool registered on an agent must have a unique name."
+      end
+
+      # ── Instrumentation template methods ──────────────────────────────────────
+      # Orchestrator::Base overrides these to fire active_ai.orchestrator.route
+      # with an orchestrator-specific payload instead of active_ai.agent.complete.
+
+      def complete_event_name
+        "active_ai.agent.complete"
+      end
+
+      def caller_type_sym
+        :agent
+      end
+
+      def build_complete_payload(caller_ctx)
+        {
+          agent_class: self.class.name,
+          provider:    resolved_provider,
+          model:       resolved_model,
+          caller_type: caller_ctx&.dig(:type),
+          caller_name: caller_ctx&.dig(:name)
+        }
+      end
+
+      def finalize_complete_notification(notif, response)
+        notif[:messages]      = @last_sent_messages
+        notif[:system_prompt] = @last_system_prompt
+        notif[:response]      = response
+        notif[:usage]         = last_usage
+        notif[:tool_calls]    = last_tool_call_results
       end
 
       # Loads a prompt file from app/ai/prompts/<name>.md (or .txt).

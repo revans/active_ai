@@ -32,7 +32,7 @@ class ActiveAIMessagesTest < ActiveSupport::TestCase
 
     error = assert_raises(ArgumentError,
       "consecutive user→user messages must raise ArgumentError; silent pass-through causes Anthropic 400") do
-      agent.send(:build_messages)
+      agent.complete
     end
     assert_match(/role|alternating|consecutive/i, error.message,
       "error message must name the problem — got: #{error.message.inspect}")
@@ -48,7 +48,7 @@ class ActiveAIMessagesTest < ActiveSupport::TestCase
 
     assert_raises(ArgumentError,
       "consecutive assistant→assistant messages are equally invalid and must raise") do
-      agent.send(:build_messages)
+      agent.complete
     end
   end
 
@@ -321,7 +321,7 @@ class ActiveAIMessagesTest < ActiveSupport::TestCase
 
     error = assert_raises(ArgumentError,
       "nil role must raise ArgumentError — role: '' causes Anthropic 400") do
-      agent.send(:build_messages)
+      agent.complete
     end
     assert_match(/role/i, error.message,
       "error message must mention 'role' — got: #{error.message.inspect}")
@@ -333,7 +333,7 @@ class ActiveAIMessagesTest < ActiveSupport::TestCase
 
     assert_raises(ArgumentError,
       "blank string role must also raise — it is equally invalid") do
-      agent.send(:build_messages)
+      agent.complete
     end
   end
 

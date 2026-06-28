@@ -142,7 +142,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
       "error result must include the original exception message"
   end
 
-  test "tool_call.active_ai notification result is set even when tool raises" do
+  test "active_ai.tool.call notification result is set even when tool raises" do
     boom_tool = Class.new(ApplicationTool) do
       tool_name "boom_notif_test"
       description "Raises"
@@ -157,7 +157,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     )
 
     payloads = []
-    sub = ActiveSupport::Notifications.subscribe("tool_call.active_ai") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("active_ai.tool.call") do |_name, _s, _f, _id, payload|
       payloads << payload.dup
     end
 
@@ -470,7 +470,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     end
 
     agent = agent_class.new(system: "test", message: "go")
-    assert_raises(ArgumentError,
+    assert_raises(ActiveAI::ConfigurationError,
       "duplicate tool names must raise before the API call — not produce a cryptic 400") do
       agent.complete
     end
@@ -489,12 +489,12 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     end
 
     agent = agent_class.new(system: "test", message: "go")
-    error = assert_raises(ArgumentError) { agent.complete }
+    error = assert_raises(ActiveAI::ConfigurationError) { agent.complete }
     assert_match "obviously_duped_test", error.message,
       "error must name the duplicate tool so the developer knows which one to fix"
   end
 
-  test "class tool and instance tool with the same name raise ArgumentError" do
+  test "class tool and instance tool with the same name raise ConfigurationError" do
     shared_name_class = Class.new(ApplicationTool) do
       tool_name "shared_name_conflict_test"
       description "Class version"
@@ -512,18 +512,18 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     end
 
     agent = agent_class.new(system: "test", message: "go")
-    assert_raises(ArgumentError,
-      "class tool and instance tool with the same name must raise ArgumentError") do
+    assert_raises(ActiveAI::ConfigurationError,
+      "class tool and instance tool with the same name must raise ConfigurationError") do
       agent.complete
     end
   end
 
-  # ── 8. Instrumentable events ─────────────────────────────────────────────────
-  # VERDICT: PASS — step.active_ai fires through the meta-tool instrument_step path.
-  # output_length is correctly populated from the agent's return string length.
-  # tool_call.active_ai fires for each tool dispatched directly on an agent.
+  # ── 8. Instrumentation events ─────────────────────────────────────────────────
+  # active_ai.orchestrator.dispatch fires when a meta-tool dispatches to an agent.
+  # active_ai.tool.call fires for each tool invoked in the agentic loop.
+  # active_ai.agent.stream fires for the full stream loop (nested inside agent.complete).
 
-  test "step.active_ai notification fires when meta-tool dispatches an agent" do
+  test "active_ai.orchestrator.dispatch notification fires when meta-tool dispatches an agent" do
     fast_agent = Class.new(ApplicationAgent) do
       def self.name = "EchoLoopAgent"
       description "Echoes the message"
@@ -536,16 +536,16 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     end
 
     events = []
-    sub = ActiveSupport::Notifications.subscribe("step.active_ai") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("active_ai.orchestrator.dispatch") do |_name, _s, _f, _id, payload|
       events << payload.dup
     end
 
     orch = orch_class.new(message: "go")
     orch.instance_tools.first.call(message: "test input")
 
-    assert_equal 1, events.size, "exactly one step.active_ai must fire per meta-tool call"
+    assert_equal 1, events.size, "exactly one active_ai.orchestrator.dispatch must fire per meta-tool call"
     e = events.first
-    assert_equal "echo_loop_agent",     e[:agent_class]
+    assert_equal "echo_loop_agent",     e[:step_name]
     assert_equal "test input".length,   e[:input_length]
     assert e[:output_length] > 0,
       "output_length must be set from the agent result length — got #{e[:output_length].inspect}"
@@ -553,7 +553,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.unsubscribe(sub) if sub
   end
 
-  test "tool_call.active_ai notification fires for each tool dispatched in the agentic loop" do
+  test "active_ai.tool.call notification fires for each tool dispatched in the agentic loop" do
     spy_tool = Class.new(ApplicationTool) do
       tool_name "spy_notification_test"
       description "Notification spy"
@@ -568,13 +568,13 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     )
 
     events = []
-    sub = ActiveSupport::Notifications.subscribe("tool_call.active_ai") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("active_ai.tool.call") do |_name, _s, _f, _id, payload|
       events << payload.dup
     end
 
     agent.complete
 
-    assert_equal 1, events.size, "one tool_call.active_ai notification must fire per tool invocation"
+    assert_equal 1, events.size, "one active_ai.tool.call notification must fire per tool invocation"
     e = events.first
     assert_equal "spy_notification_test", e[:tool_name]
     assert_equal "spied", e[:result],
@@ -583,7 +583,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.unsubscribe(sub) if sub
   end
 
-  test "stream.active_ai notification payload includes tool_calls from last_tool_call_results" do
+  test "active_ai.agent.stream notification payload includes tool_calls from last_tool_call_results" do
     sum_tool = Class.new(ApplicationTool) do
       tool_name "sum_notif_test"
       description "Sums"
@@ -598,7 +598,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     )
 
     stream_events = []
-    sub = ActiveSupport::Notifications.subscribe("stream.active_ai") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("active_ai.agent.stream") do |_name, _s, _f, _id, payload|
       stream_events << payload.dup
     end
 

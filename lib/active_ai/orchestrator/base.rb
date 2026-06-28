@@ -116,6 +116,31 @@ module ActiveAI
 
       private
 
+      def complete_event_name
+        "active_ai.orchestrator.route"
+      end
+
+      def caller_type_sym
+        :orchestrator
+      end
+
+      def build_complete_payload(caller_ctx)
+        {
+          orchestrator_class: self.class.name,
+          provider:           resolved_provider,
+          model:              resolved_model,
+          message:            @message,
+          caller_type:        caller_ctx&.dig(:type),
+          caller_name:        caller_ctx&.dig(:name)
+        }
+      end
+
+      def finalize_complete_notification(notif, response)
+        notif[:response]      = response
+        notif[:usage]         = last_usage
+        notif[:dispatched_to] = last_tool_call_results.map { |t| t[:name] }
+      end
+
       def build_params
         {
           model:        resolved_model,
@@ -151,7 +176,9 @@ module ActiveAI
               define_singleton_method(:description) { tool_description }
               param :message, type: :string, description: "The task or input to pass to #{tool_name_string}"
               define_method(:call) do |message:|
-                orchestrator.__send__(:instrument_step, tool_name_string, input_length: message.to_s.length) do
+                orchestrator.__send__(:instrument_step, tool_name_string,
+                  input_length: message.to_s.length,
+                  event: "active_ai.orchestrator.dispatch") do
                   ctx = context_lambda ? orchestrator.instance_exec(&context_lambda) : orchestrator.context_for(klass)
                   klass.run(message, **ctx)
                 end
