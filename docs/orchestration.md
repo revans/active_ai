@@ -48,7 +48,19 @@ prompt_file :writing
 # → app/ai/orchestrators/prompts/writing.md.erb
 ```
 
-The file renders without a live instance — `@ivars` and instance methods are not available. ERB conditionals and pure Ruby expressions are fully supported, which is where file-based orchestrator prompts earn their keep: environment checks, feature flags, long conditional routing logic that would be unwieldy inline.
+The file renders at call time with the orchestrator instance as context — `@ivars` and instance methods are fully available, the same as agent prompt files. This is where file-based orchestrator prompts earn their keep: routing rules that depend on who is calling, feature flags, environment-specific behavior, or any conditional logic too long to maintain inline.
+
+```erb
+You are a document routing agent.
+
+<% if @user.admin? %>
+You may also route to AdminReportAgent for compliance and audit requests.
+<% end %>
+
+<% if Rails.env.production? %>
+Prefer the most specific agent. Avoid falling back to GeneralistAgent unless no other agent fits.
+<% end %>
+```
 
 ---
 

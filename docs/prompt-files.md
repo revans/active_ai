@@ -35,20 +35,22 @@ Not all prompt files render the same way. The distinction is critical — `@ivar
 | `tool` | `prompt_file(:name)` on a tool instance | Full — `@ivars`, instance methods |
 | `workflow` | `prompt_file(:name)` on a workflow instance | Full — `@ivars`, instance methods |
 | `memory` | `prompt_file(:name)` on a memory agent instance | Full — `@ivars`, instance methods |
-| `skill` | `prompt_file :name` class DSL | None — static content and ERB logic only |
-| `orchestrator` | `prompt_file :name` class DSL | None — static content and ERB logic only |
+| `orchestrator` | `prompt_file :name` — rendered at call time with the live orchestrator instance | Full — `@ivars`, instance methods |
+| `skill` | `prompt_file :name` — rendered at class load time, no instance exists | None — ERB conditionals and pure Ruby only |
 
-Skills and orchestrators use `prompt_file` as a class-level DSL (not an instance method), so there is no live object in scope when the ERB renders. ERB conditionals and any pure Ruby expression work fine — what is absent is the instance itself:
+Skills are the one exception: `prompt_file` on a skill sets `_static_content` at class load time, before any instance is created, so no object context is available. ERB conditionals and pure Ruby expressions still work:
 
 ```erb
-<%# This works — pure Ruby and Rails constants are in scope %>
+<%# Works — pure Ruby and Rails constants %>
 <% if Rails.env.production? %>
-Be conservative. Prefer the most specific agent available.
+Be concise. Avoid examples unless directly requested.
 <% end %>
 
-<%# This does NOT work — no live object means no @ivars or instance methods %>
+<%# Does NOT work — no instance exists at class load time %>
 <%= @document.title %>
 ```
+
+Orchestrators render their prompt file at call time with the live orchestrator instance in scope, so `@ivars` and instance methods are fully available — the same as agent prompt files.
 
 ---
 

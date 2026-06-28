@@ -130,7 +130,7 @@ module ActiveAI
 
     def resolved_system_prompt
       if (file = self.class._system_prompt_file)
-        ActiveAI.orchestrator.prompt(file)
+        ActiveAI.orchestrator._prompt_in_context(file, self)
       else
         self.class._system_prompt.to_s
       end

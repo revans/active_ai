@@ -21,8 +21,8 @@ module ActiveAI
         "orchestrator" => "app/ai/orchestrators/prompts"
       }.freeze
 
-      # These namespaces render without instance context — prompt_file is a class-level DSL.
-      CLASS_LEVEL_NAMESPACES = %w[skill orchestrator].freeze
+      # Skills render without instance context — prompt_file sets _static_content at class load time.
+      CLASS_LEVEL_NAMESPACES = %w[skill].freeze
 
       def create_prompt_file
         unless NAMESPACE_DIRS.key?(prompt_namespace)
