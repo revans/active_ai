@@ -34,8 +34,34 @@ class ApplicationAgent < ActiveAI::Agent::Base
 
   private
 
+  # IMPLEMENT ME: convert your app's message records into [{role:, content:}] hashes.
+  # This is called once per request, before the provider call.
+  #
+  # @history  — array of your app's Message records (ActiveRecord or POROs)
+  # @message  — the current user message string
+  # @context  — optional string prepended as context before the history
+  #
+  # Example:
+  #
+  #   def build_messages
+  #     messages = []
+  #
+  #     if @context.present?
+  #       messages << { role: "user",      content: @context.to_s }
+  #       messages << { role: "assistant", content: "Understood." }
+  #     end
+  #
+  #     @history.each do |msg|
+  #       next if msg.content.blank?
+  #       messages << { role: msg.role.to_s, content: msg.content.to_s }
+  #     end
+  #
+  #     messages << { role: "user", content: @message } if @message.present?
+  #     messages
+  #   end
   def build_messages
-    raise NotImplementedError, "#{self.class}#build_messages must be implemented. " \
-      "Convert @history (your app's message records) and @message into [{role:, content:}] hashes."
+    raise NotImplementedError,
+      "#{self.class.name}#build_messages is not implemented. " \
+      "Open app/ai/agents/application_agent.rb and fill in the build_messages method."
   end
 end

@@ -1,13 +1,16 @@
 class <%= class_name %>Agent < ApplicationAgent
-  # Built-in tools (opt-in):
+  # Optional: declare tools
   # tools ActiveAI::Tools::WebSearch      # requires FIRECRAWL_API_KEY in ENV
   # tools ActiveAI::Tools::WebPageReader  # no key required
 
+  # build_messages is inherited from ApplicationAgent — implement it there
+  # if you haven't already.
+
   private
 
-  def build_params
-    super.merge(
-      # system: prompt(:<%= file_name %>)  # loads app/ai/prompts/<%= file_name %>.md
-    )
-  end
+  # Override to give this agent its own system prompt from a file:
+  #
+  #   def build_system_prompt
+  #     prompt_file(:<%= file_name %>)
+  #   end
 end
