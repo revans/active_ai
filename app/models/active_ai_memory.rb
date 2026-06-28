@@ -16,6 +16,10 @@ class ActiveAIMemory < ApplicationRecord
   validates :summary,     exclusion: { in: [nil], message: "can't be blank" }
   validates :tier,        inclusion: { in: VALID_TIERS, message: "must be warm or cold" }
 
-  scope :warm, -> { where(tier: "warm") }
-  scope :cold, -> { where(tier: "cold") }
+  scope :warm,               -> { where(tier: "warm") }
+  scope :cold,               -> { where(tier: "cold") }
+  scope :frequently_accessed, -> { where("access_count >= ?", 10) }
+  scope :dormant,             -> { where("last_accessed_at < ?", 30.days.ago) }
+  scope :most_accessed,       -> { order(access_count: :desc) }
+  scope :recently_accessed,   -> { order(last_accessed_at: :desc) }
 end
