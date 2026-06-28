@@ -449,6 +449,21 @@ ActiveAIMemory.warm.where.not(id: ActiveAIMemoryFlag.select(:memory_id))
 | `ActiveAIMemoryCorrelation` | `active_ai_memory_correlations` | `memory_a_id`, `memory_b_id`, `similarity_score`, `correlation_type` |
 | `ActiveAIMemoryFlag` | `active_ai_memory_flags` | `memory_id`, `flag_type`, `reason`, `confidence_at_flag` |
 
+`ActiveAIMemory` ships with scopes for common access pattern queries:
+
+```ruby
+ActiveAIMemory.warm                          # tier = "warm"
+ActiveAIMemory.cold                          # tier = "cold"
+ActiveAIMemory.frequently_accessed           # access_count >= 10
+ActiveAIMemory.dormant                       # last_accessed_at > 30 days ago
+ActiveAIMemory.most_accessed                 # ordered by access_count desc
+ActiveAIMemory.recently_accessed             # ordered by last_accessed_at desc
+
+# Scopes compose — find warm memories that have gone stale:
+ActiveAIMemory.warm.dormant
+ActiveAIMemory.warm.dormant.most_accessed.limit(20)
+```
+
 ---
 
 ## Vector store
