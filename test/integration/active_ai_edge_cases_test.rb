@@ -411,7 +411,7 @@ class ActiveAIEdgeCasesTest < ActiveSupport::TestCase
       "workflow meta-tool must call workflow.run(input) and return the string result"
   end
 
-  test "workflow meta-tool fires active_ai.orchestrator.dispatch notification with output_length" do
+  test "workflow meta-tool fires orchestrator_dispatch.active_ai notification with output_length" do
     stub_wf = Class.new(ApplicationWorkflow) do
       def self.name = "StepNotifWorkflow"
       description "Notif test"
@@ -430,13 +430,13 @@ class ActiveAIEdgeCasesTest < ActiveSupport::TestCase
     meta_tool = orch.instance_tools.first
 
     events = []
-    sub = ActiveSupport::Notifications.subscribe("active_ai.orchestrator.dispatch") do |_n, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("orchestrator_dispatch.active_ai") do |_n, _s, _f, _id, payload|
       events << payload.dup
     end
 
     meta_tool.call(message: "topic")
 
-    assert_equal 1, events.size, "exactly one active_ai.orchestrator.dispatch must fire per workflow meta-tool call"
+    assert_equal 1, events.size, "exactly one orchestrator_dispatch.active_ai must fire per workflow meta-tool call"
     assert events.first[:output_length] > 0,
       "output_length in the notification must reflect the workflow result length"
   ensure

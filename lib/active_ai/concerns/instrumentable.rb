@@ -21,7 +21,7 @@ module ActiveAI
       # Fires a step-level notification. event: defaults to active_ai.workflow.step
       # but orchestrators pass active_ai.orchestrator.dispatch to distinguish dispatches
       # from workflow steps.
-      def instrument_step(target_name, input_length:, event: "active_ai.workflow.step")
+      def instrument_step(target_name, input_length:, event: "workflow_step.active_ai")
         caller_ctx = ActiveAI::Instrumentation.current_caller
         result     = nil
         ActiveSupport::Notifications.instrument(event, {

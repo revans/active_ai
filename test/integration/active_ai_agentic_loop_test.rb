@@ -157,7 +157,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     )
 
     payloads = []
-    sub = ActiveSupport::Notifications.subscribe("active_ai.tool.call") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("tool_call.active_ai") do |_name, _s, _f, _id, payload|
       payloads << payload.dup
     end
 
@@ -523,7 +523,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
   # active_ai.tool.call fires for each tool invoked in the agentic loop.
   # active_ai.agent.stream fires for the full stream loop (nested inside agent.complete).
 
-  test "active_ai.orchestrator.dispatch notification fires when meta-tool dispatches an agent" do
+  test "orchestrator_dispatch.active_ai notification fires when meta-tool dispatches an agent" do
     fast_agent = Class.new(ApplicationAgent) do
       def self.name = "EchoLoopAgent"
       description "Echoes the message"
@@ -536,14 +536,14 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     end
 
     events = []
-    sub = ActiveSupport::Notifications.subscribe("active_ai.orchestrator.dispatch") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("orchestrator_dispatch.active_ai") do |_name, _s, _f, _id, payload|
       events << payload.dup
     end
 
     orch = orch_class.new(message: "go")
     orch.instance_tools.first.call(message: "test input")
 
-    assert_equal 1, events.size, "exactly one active_ai.orchestrator.dispatch must fire per meta-tool call"
+    assert_equal 1, events.size, "exactly one orchestrator_dispatch.active_ai must fire per meta-tool call"
     e = events.first
     assert_equal "echo_loop_agent",     e[:step_name]
     assert_equal "test input".length,   e[:input_length]
@@ -553,7 +553,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.unsubscribe(sub) if sub
   end
 
-  test "active_ai.tool.call notification fires for each tool dispatched in the agentic loop" do
+  test "tool_call.active_ai notification fires for each tool dispatched in the agentic loop" do
     spy_tool = Class.new(ApplicationTool) do
       tool_name "spy_notification_test"
       description "Notification spy"
@@ -568,13 +568,13 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     )
 
     events = []
-    sub = ActiveSupport::Notifications.subscribe("active_ai.tool.call") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("tool_call.active_ai") do |_name, _s, _f, _id, payload|
       events << payload.dup
     end
 
     agent.complete
 
-    assert_equal 1, events.size, "one active_ai.tool.call notification must fire per tool invocation"
+    assert_equal 1, events.size, "one tool_call.active_ai notification must fire per tool invocation"
     e = events.first
     assert_equal "spy_notification_test", e[:tool_name]
     assert_equal "spied", e[:result],
@@ -583,7 +583,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.unsubscribe(sub) if sub
   end
 
-  test "active_ai.agent.stream notification payload includes tool_calls from last_tool_call_results" do
+  test "agent_stream.active_ai notification payload includes tool_calls from last_tool_call_results" do
     sum_tool = Class.new(ApplicationTool) do
       tool_name "sum_notif_test"
       description "Sums"
@@ -598,7 +598,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     )
 
     stream_events = []
-    sub = ActiveSupport::Notifications.subscribe("active_ai.agent.stream") do |_name, _s, _f, _id, payload|
+    sub = ActiveSupport::Notifications.subscribe("agent_stream.active_ai") do |_name, _s, _f, _id, payload|
       stream_events << payload.dup
     end
 

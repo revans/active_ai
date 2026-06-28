@@ -50,7 +50,7 @@ module ActiveAI
           caller_name:    caller_ctx&.dig(:name)
         }
         result = nil
-        ActiveSupport::Notifications.instrument("active_ai.workflow.run", payload) do |notif|
+        ActiveSupport::Notifications.instrument("workflow_run.active_ai", payload) do |notif|
           ActiveAI::Instrumentation.with_caller(type: :workflow, name: name) do
             result         = new.run(input)
             notif[:output] = result.to_s
@@ -113,7 +113,7 @@ module ActiveAI
         step_names = entries.map { |(target, _)| target.is_a?(Class) ? target.name : target.class.name }
         results    = nil
 
-        ActiveSupport::Notifications.instrument("active_ai.workflow.parallel_step", {
+        ActiveSupport::Notifications.instrument("workflow_parallel_step.active_ai", {
           workflow_class: self.class.name,
           steps:          step_names,
           count:          entries.length

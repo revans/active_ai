@@ -81,7 +81,7 @@ module ActiveAI
       def self.to_definition(context = {})
         caller_ctx = ActiveAI::Instrumentation.current_caller
         result     = nil
-        ActiveSupport::Notifications.instrument("active_ai.skill.resolve", {
+        ActiveSupport::Notifications.instrument("skill_resolve.active_ai", {
           skill_name:  _skill_name,
           skill_class: name,
           caller_type: caller_ctx&.dig(:type),

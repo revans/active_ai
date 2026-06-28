@@ -117,7 +117,7 @@ module ActiveAI
       private
 
       def complete_event_name
-        "active_ai.orchestrator.route"
+        "orchestrator_route.active_ai"
       end
 
       def caller_type_sym
@@ -178,7 +178,7 @@ module ActiveAI
               define_method(:call) do |message:|
                 orchestrator.__send__(:instrument_step, tool_name_string,
                   input_length: message.to_s.length,
-                  event: "active_ai.orchestrator.dispatch") do
+                  event: "orchestrator_dispatch.active_ai") do
                   ctx = context_lambda ? orchestrator.instance_exec(&context_lambda) : orchestrator.context_for(klass)
                   klass.run(message, **ctx)
                 end

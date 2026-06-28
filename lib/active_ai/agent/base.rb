@@ -158,7 +158,7 @@ module ActiveAI
 
         iterations = 0
 
-        ActiveSupport::Notifications.instrument("active_ai.agent.stream", payload) do |notif|
+        ActiveSupport::Notifications.instrument("agent_stream.active_ai", payload) do |notif|
           loop do
             iterations += 1
             if iterations > MAX_TOOL_ITERATIONS
@@ -297,7 +297,7 @@ module ActiveAI
         call_result     = nil
 
         caller_ctx = ActiveAI::Instrumentation.current_caller
-        ActiveSupport::Notifications.instrument("active_ai.tool.call", {
+        ActiveSupport::Notifications.instrument("tool_call.active_ai", {
           tool_name:   tool_call[:name],
           tool_class:  registered_tool.is_a?(Class) ? registered_tool.name : registered_tool&.class&.name,
           input:       tool_call[:input],
@@ -343,7 +343,7 @@ module ActiveAI
       # with an orchestrator-specific payload instead of active_ai.agent.complete.
 
       def complete_event_name
-        "active_ai.agent.complete"
+        "agent_complete.active_ai"
       end
 
       def caller_type_sym

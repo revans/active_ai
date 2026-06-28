@@ -81,26 +81,7 @@ module ActiveAI
             " in=#{usage[:input_tokens] || '?'} out=#{usage[:output_tokens] || '?'}#{tool_note})"
     end
 
-    class << self
-      def subscribe_to_events
-        {
-          "active_ai.agent.complete"          => :agent_complete,
-          "active_ai.agent.stream"            => :agent_stream,
-          "active_ai.orchestrator.route"      => :orchestrator_route,
-          "active_ai.orchestrator.dispatch"   => :orchestrator_dispatch,
-          "active_ai.workflow.run"            => :workflow_run,
-          "active_ai.workflow.step"           => :workflow_step,
-          "active_ai.workflow.parallel_step"  => :workflow_parallel_step,
-          "active_ai.tool.call"               => :tool_call,
-          "active_ai.skill.resolve"           => :skill_resolve
-        }.each do |event_name, handler|
-          ActiveSupport::Notifications.subscribe(event_name) do |*args|
-            new.public_send(handler, ActiveSupport::Notifications::Event.new(*args))
-          end
-        end
-      end
-    end
   end
 end
 
-ActiveAI::LogSubscriber.subscribe_to_events
+ActiveAI::LogSubscriber.attach_to :active_ai
