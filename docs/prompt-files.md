@@ -38,7 +38,17 @@ Not all prompt files render the same way. The distinction is critical — `@ivar
 | `skill` | `prompt_file :name` class DSL | None — static content and ERB logic only |
 | `orchestrator` | `prompt_file :name` class DSL | None — static content and ERB logic only |
 
-Skills and orchestrators use `prompt_file` as a class-level DSL (not an instance method), so there is no live object in scope when the ERB renders. You can still use ERB conditionals and string interpolation with literals — you just cannot reference `@instance_variables` or call instance methods.
+Skills and orchestrators use `prompt_file` as a class-level DSL (not an instance method), so there is no live object in scope when the ERB renders. ERB conditionals and any pure Ruby expression work fine — what is absent is the instance itself:
+
+```erb
+<%# This works — pure Ruby and Rails constants are in scope %>
+<% if Rails.env.production? %>
+Be conservative. Prefer the most specific agent available.
+<% end %>
+
+<%# This does NOT work — no live object means no @ivars or instance methods %>
+<%= @document.title %>
+```
 
 ---
 

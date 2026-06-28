@@ -1,5 +1,9 @@
 [Describe the content or routing logic here.]
 
-[This file renders at class load time without instance context.]
-[No @ivars or instance methods — static content and ERB conditionals only.]
+[ERB conditionals are available — e.g.:]
+[<% if Rails.env.production? %>]
+[production-specific instruction]
+[<% end %>]
+
+[What is NOT available: @ivars or instance methods — this renders without a live object.]
 [Remove these bracketed notes before use.]

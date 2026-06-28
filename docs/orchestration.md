@@ -48,7 +48,7 @@ prompt_file :writing
 # → app/ai/orchestrators/prompts/writing.md.erb
 ```
 
-The file is rendered without instance context at each call (ERB templates that reference `@ivars` or methods will not work here — use static conditional logic in the template). Use `.md.erb` when the routing rules are long enough to be maintained separately from the class definition.
+The file renders without a live instance — `@ivars` and instance methods are not available. ERB conditionals and pure Ruby expressions are fully supported, which is where file-based orchestrator prompts earn their keep: environment checks, feature flags, long conditional routing logic that would be unwieldy inline.
 
 ---
 
