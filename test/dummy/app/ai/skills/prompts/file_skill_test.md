@@ -1,0 +1,1 @@
+Always write with clarity and precision.

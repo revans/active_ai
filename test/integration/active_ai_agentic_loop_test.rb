@@ -1,6 +1,6 @@
 require "test_helper"
 
-# Adversarial integration tests targeting the agentic tool loop in ActiveAI::Base.
+# Adversarial integration tests targeting the agentic tool loop in ActiveAI::Agent::Base.
 # All tests stub the provider at the provider_instance level — no real API calls are made.
 #
 # Tests are written for the target (fixed) behavior. Each section has a VERDICT comment:
@@ -253,7 +253,7 @@ class ActiveAIAgenticLoopTest < ActiveSupport::TestCase
     end
 
     error = assert_raises(ActiveAI::ToolLoopError) { agent.complete }
-    assert_match ActiveAI::Base::MAX_TOOL_ITERATIONS.to_s, error.message,
+    assert_match ActiveAI::Agent::Base::MAX_TOOL_ITERATIONS.to_s, error.message,
       "ToolLoopError message must state the limit so operators know what to increase"
   end
 

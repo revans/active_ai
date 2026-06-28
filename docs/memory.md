@@ -7,9 +7,10 @@ Think of it like an assistant who takes notes after every meeting. Before the ne
 | Library handles | You implement |
 |---|---|
 | All 4 jobs and 3 agents (scaffolded, functional after install) | `after_stream_memory_persist` hook in your controller |
-| `Memory.persist`, `Memory.recall`, system prompt injection | Real embedding vector in `EmbedJob#embedding_vector` (stub by default) |
-| Specificity scoring, token budget enforcement | Schedule `TierJob` and `ConsolidateJob` (they don't run themselves) |
-| `recall_memory` DSL on agents | `memory_recall_context` if scoping recall to a subject |
+| `Memory.persist`, `Memory.recall`, `Formatter.content` | `build_system_prompt` override in `ApplicationAgent` (see below) |
+| Specificity scoring, token budget enforcement | Real embedding vector in `EmbedJob#embedding_vector` (stub by default) |
+| `recall_memory` DSL on agents | Schedule `TierJob` and `ConsolidateJob` (they don't run themselves) |
+| — | `memory_recall_context` if scoping recall to a subject |
 
 **Nothing persists until you wire the controller hook.** Everything else is automatic once that hook enqueues the first job.
 
@@ -197,6 +198,46 @@ This is soft signal — the header explicitly tells the model to treat it as con
 ---
 
 ## Opting an agent into memory recall
+
+Memory recall has two wiring points: a class-level DSL on individual agents that declares *what* to recall, and a `build_system_prompt` override in `ApplicationAgent` that declares *where* those memories get injected.
+
+### Step 1 — Wire recall into ApplicationAgent
+
+Override `build_system_prompt` in your `ApplicationAgent` to prepend recalled memories to every agent's system prompt:
+
+```ruby
+class ApplicationAgent < ActiveAI::Agent::Base
+  # ... existing code ...
+
+  private
+
+  def build_system_prompt
+    base   = super  # instance system: kwarg or class-level system_prompt DSL
+    memory = recalled_memory_block
+    [memory, base].select(&:present?).join("\n\n")
+  end
+
+  def recalled_memory_block
+    return "" unless self.class._memory_config
+
+    cfg     = self.class._memory_config
+    context = { agent_class: self.class }.merge(memory_recall_context)
+
+    ActiveAI::Memory::Formatter.content(**context.merge(cfg))
+  rescue => e
+    Rails.logger.error("[Memory] Recall failed for #{self.class}: #{e.message}")
+    ""
+  end
+
+  def memory_recall_context
+    {}
+  end
+end
+```
+
+This is app code, not gem code — the memory generator does not write this into `ApplicationAgent` automatically. You add it once and every agent that opts into `recall_memory` gets the injection for free.
+
+### Step 2 — Opt individual agents in
 
 Add `recall_memory` to any agent class:
 

@@ -2,7 +2,7 @@ module ActiveAI
   # Included in ApplicationAgent, ApplicationTool, etc. so instances can render
   # prompt files from their own directory with full access to their own state.
   #
-  #   class ApplicationAgent < ActiveAI::Base
+  #   class ApplicationAgent < ActiveAI::Agent::Base
   #     include ActiveAI::Promptable
   #     prompt_namespace :agent
   #   end

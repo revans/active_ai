@@ -14,7 +14,7 @@ Use an Orchestrator when the routing decision itself is dynamic — when you hav
 
 ## Defining an orchestrator
 
-Inherit from `ApplicationOrchestrator` (which inherits from `ActiveAI::Orchestrator`):
+Inherit from `ApplicationOrchestrator` (which inherits from `ActiveAI::Orchestrator::Base`):
 
 ```ruby
 class WritingOrchestrator < ApplicationOrchestrator
@@ -76,7 +76,7 @@ workflow ResearchAndDraftWorkflow
 
 Each registered class must:
 - Include `ActiveAI::Orchestratable` (done automatically in `ApplicationAgent` and `ApplicationWorkflow`)
-- Implement `self.run(message, **context)` (inherited automatically from `ActiveAI::Base` by `ApplicationAgent`, and from `ActiveAI::Workflow` by `ApplicationWorkflow`)
+- Implement `self.run(message, **context)` (inherited automatically from `ActiveAI::Agent::Base` by `ApplicationAgent`, and from `ActiveAI::Workflow::Base` by `ApplicationWorkflow`)
 
 ---
 
@@ -92,7 +92,7 @@ class ResearchOrchestrator < ApplicationOrchestrator
 end
 ```
 
-Regular tools are registered with the inherited `tools` DSL from `ActiveAI::Base`. Agent and workflow meta-tools are registered with `agent` and `workflow`.
+Regular tools are registered with the inherited `tools` DSL from `ActiveAI::Agent::Base`. Agent and workflow meta-tools are registered with `agent` and `workflow`.
 
 ---
 
@@ -162,7 +162,7 @@ result       = orchestrator.complete
 
 `ActiveAI::Orchestratable` is a marker mixin that makes a class dispatchable by an Orchestrator. `ApplicationAgent` and `ApplicationWorkflow` already include it.
 
-The dispatching Orchestrator calls `klass.run(message, **context)` on each registered class. Agent classes inherit `run` from `ActiveAI::Base`; workflow classes inherit it from `ActiveAI::Workflow`. Custom base classes that want to be Orchestratable must include the module and implement `self.run(message, **context)`.
+The dispatching Orchestrator calls `klass.run(message, **context)` on each registered class. Agent classes inherit `run` from `ActiveAI::Agent::Base`; workflow classes inherit it from `ActiveAI::Workflow::Base`. Custom base classes that want to be Orchestratable must include the module and implement `self.run(message, **context)`.
 
 ---
 

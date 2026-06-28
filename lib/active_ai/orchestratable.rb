@@ -5,8 +5,8 @@ module ActiveAI
   # Including classes must respond to self.run(message, **context) —
   # the normalized entry point the Orchestrator uses to invoke them.
   #
-  # Agents inherit run from ActiveAI::Base. Workflows inherit run from
-  # ActiveAI::Workflow. Custom classes must implement it themselves.
+  # Agents inherit run from ActiveAI::Agent::Base. Workflows inherit run from
+  # ActiveAI::Workflow::Base. Custom classes must implement it themselves.
   #
   module Orchestratable
   end

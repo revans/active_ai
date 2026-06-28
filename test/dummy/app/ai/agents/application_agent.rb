@@ -1,4 +1,4 @@
-class ApplicationAgent < ActiveAI::Base
+class ApplicationAgent < ActiveAI::Agent::Base
   include ActiveAI::Orchestratable
   include ActiveAI::Promptable
   prompt_namespace :agent
@@ -34,24 +34,6 @@ class ApplicationAgent < ActiveAI::Base
 
   private
 
-  def build_params
-    {
-      model:        resolved_model,
-      max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
-      system:       @system.to_s,
-      skills:       self.class._skills.map { |s| s.respond_to?(:to_definition) ? s.to_definition(skill_context) : s } +
-                    @skills.map { |s| { id: s.id, name: s.name, content: s.content } },
-      source_files: @source_files,
-      messages:     build_messages,
-      cacheable:    self.class._cache_config,
-      tools:        all_tools.map(&:to_definition)
-    }
-  end
-
-  def skill_context
-    { message: @message, context: @context }
-  end
-
   def build_messages
     messages = []
 
@@ -60,29 +42,9 @@ class ApplicationAgent < ActiveAI::Base
       messages << { role: "assistant", content: "Understood. I have read the full document. What would you like to discuss?" }
     end
 
-    # Pre-validate history against Anthropic's role requirements before building.
-    # Checks blank roles and consecutive same-role violations in the raw sequence.
-    # Blank-content messages are skipped below but still counted in the raw role sequence
-    # so that [user, blank-assistant, user] does not trigger a consecutive-role error —
-    # only genuinely adjacent same-role messages (with no separator at all) raise.
-    raw_roles = messages.map { |m| m[:role] }
-    @history.each_with_index do |msg, i|
-      role = msg.role.to_s
-      if role.blank?
-        raise ArgumentError,
-          "History message at index #{i} has a blank role — every message must have role \"user\" or \"assistant\""
-      end
-      raw_roles << role
-    end
-    raw_roles.each_cons(2) do |prev, curr|
-      next unless prev == curr
-      raise ArgumentError,
-        "Consecutive #{curr.inspect} messages in history violate Anthropic's strictly alternating user/assistant requirement"
-    end
-
     @history.each do |msg|
       content = msg.content.to_s
-      next if content.blank?  # Anthropic rejects content: "" or content: nil
+      next if content.blank?
 
       if msg.attached_file_content.present?
         content = "Attached file — #{msg.attached_file_name}:\n#{msg.attached_file_content}\n\n#{content}"

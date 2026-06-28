@@ -18,7 +18,7 @@ module ActiveAI
   # Raised when the agentic tool loop exceeds MAX_TOOL_ITERATIONS.
   # This prevents an infinite loop when a model keeps requesting tool calls
   # without ever producing a final text response.
-  # Increase ActiveAI::Base::MAX_TOOL_ITERATIONS if an agent legitimately needs more turns.
+  # Increase ActiveAI::Agent::Base::MAX_TOOL_ITERATIONS if an agent legitimately needs more turns.
   class ToolLoopError < Error; end
 
   module Tools
