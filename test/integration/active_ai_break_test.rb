@@ -380,7 +380,7 @@ class ActiveAIBreakTest < ActiveSupport::TestCase
   # ── Bonus: Orchestratable requirement enforced ────────────────────────────
 
   test "registering agent without Orchestratable raises ArgumentError" do
-    bare_agent = Class.new(ActiveAI::Base) do
+    bare_agent = Class.new(ActiveAI::Agent::Base) do
       def self.name = "BareAgent"
     end
 
