@@ -1,6 +1,6 @@
 module ActiveAI
   class LogSubscriber < ActiveSupport::LogSubscriber
-    # active_ai.agent.complete — full agent turn with messages, response, token usage
+    # agent_complete.active_ai — full agent turn with messages, response, token usage
     def agent_complete(event)
       p       = event.payload
       usage   = p[:usage] || {}
@@ -12,7 +12,7 @@ module ActiveAI
            " in=#{usage[:input_tokens] || '?'} out=#{usage[:output_tokens] || '?'}#{tool_note})#{caller}"
     end
 
-    # active_ai.orchestrator.route — routing decision with dispatched agents/workflows
+    # orchestrator_route.active_ai — routing decision with dispatched agents/workflows
     def orchestrator_route(event)
       p          = event.payload
       usage      = p[:usage] || {}
@@ -23,14 +23,14 @@ module ActiveAI
            " dispatched=#{dispatched} | in=#{usage[:input_tokens] || '?'} out=#{usage[:output_tokens] || '?'})"
     end
 
-    # active_ai.orchestrator.dispatch — individual dispatch to an agent or workflow
+    # orchestrator_dispatch.active_ai — individual dispatch to an agent or workflow
     def orchestrator_dispatch(event)
       p = event.payload
       info "  #{color('ActiveAI dispatch', MAGENTA, bold: true)} #{p[:source_class]} → #{p[:step_name]}" \
            " (#{event.duration.round(1)}ms)"
     end
 
-    # active_ai.workflow.run — full workflow execution
+    # workflow_run.active_ai — full workflow execution
     def workflow_run(event)
       p = event.payload
       caller = p[:caller_type] ? " [called by #{p[:caller_type]}:#{p[:caller_name]}]" : ""
@@ -38,7 +38,7 @@ module ActiveAI
            " (#{event.duration.round(1)}ms)#{caller}"
     end
 
-    # active_ai.workflow.step — single step within a workflow
+    # workflow_step.active_ai — single step within a workflow
     def workflow_step(event)
       p     = event.payload
       usage = p[:usage] || {}
@@ -47,7 +47,7 @@ module ActiveAI
            " in=#{usage[:input_tokens] || '?'} out=#{usage[:output_tokens] || '?'})"
     end
 
-    # active_ai.workflow.parallel_step — concurrent step batch
+    # workflow_parallel_step.active_ai — concurrent step batch
     def workflow_parallel_step(event)
       p = event.payload
       info "  #{color('ActiveAI parallel', YELLOW, bold: true)} #{p[:workflow_class]}" \
@@ -55,7 +55,7 @@ module ActiveAI
            " (#{event.duration.round(1)}ms)"
     end
 
-    # active_ai.tool.call — individual tool invocation
+    # tool_call.active_ai — individual tool invocation
     def tool_call(event)
       p      = event.payload
       caller = p[:caller_type] ? " [#{p[:caller_type]}:#{p[:caller_name]}]" : ""
@@ -63,14 +63,14 @@ module ActiveAI
            " (#{event.duration.round(1)}ms)#{caller}"
     end
 
-    # active_ai.skill.resolve — skill content resolved for inclusion in a prompt
+    # skill_resolve.active_ai — skill content resolved for inclusion in a prompt
     def skill_resolve(event)
       p = event.payload
       info "  #{color('ActiveAI skill', WHITE, bold: true)} #{p[:skill_name]}" \
            " (#{p[:content_length]} chars)"
     end
 
-    # active_ai.agent.stream — lower-level stream loop (fires inside agent.complete)
+    # agent_stream.active_ai — lower-level stream loop (fires inside agent_complete.active_ai)
     def agent_stream(event)
       p     = event.payload
       usage = p[:usage] || {}

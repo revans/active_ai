@@ -19,13 +19,13 @@ module ActiveAI
     #   # Or construct with context when the workflow itself needs injected state
     #   result = DocWorkflow.new(document: @document).run(user_message)
     #
-    # Each step fires a "step.active_ai" notification. Subscribe to pipe step data
+    # Each step fires a "workflow_step.active_ai" notification. Subscribe to pipe step data
     # to a log file, database table, or any other sink:
     #
-    #   ActiveSupport::Notifications.subscribe("step.active_ai") do |event|
+    #   ActiveSupport::Notifications.subscribe("workflow_step.active_ai") do |event|
     #     WorkflowStepLog.create!(
-    #       workflow:      event.payload[:workflow_class],
-    #       agent:         event.payload[:agent_class],
+    #       workflow:      event.payload[:source_class],
+    #       agent:         event.payload[:step_name],
     #       input_length:  event.payload[:input_length],
     #       output_length: event.payload[:output_length],
     #       usage:         event.payload[:usage],
@@ -98,9 +98,9 @@ module ActiveAI
       end
 
       # Runs multiple steps concurrently in threads and returns their results in
-      # the same order as the input entries. Each step fires its own step.active_ai
+      # the same order as the input entries. Each step fires its own workflow_step.active_ai
       # notification from within its thread. The whole batch fires a single
-      # parallel_step.active_ai notification wrapping all of them.
+      # workflow_parallel_step.active_ai notification wrapping all of them.
       #
       #   results = parallel_step(
       #     [ResearchAgent,  { message: "angle 1" }],
