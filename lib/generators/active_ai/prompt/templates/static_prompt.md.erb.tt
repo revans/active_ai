@@ -1,9 +1,9 @@
 [Describe the content or routing logic here.]
 
 [ERB conditionals are available — e.g.:]
-[<% if Rails.env.production? %>]
+[<%% if Rails.env.production? %>]
 [production-specific instruction]
-[<% end %>]
+[<%% end %>]
 
-[What is NOT available: @ivars or instance methods — this renders without a live object.]
+[What is NOT available: @ivars or instance methods — renders without instance context.]
 [Remove these bracketed notes before use.]
