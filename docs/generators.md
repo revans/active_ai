@@ -57,6 +57,27 @@ The generated tool includes stubs for `tool_name`, `description`, a commented `p
 
 ---
 
+## `active_ai:prompt`
+
+Generates a prompt file in the correct namespace directory.
+
+```bash
+rails generate active_ai:prompt agent writing
+# creates app/ai/agents/prompts/writing.md.erb
+
+rails generate active_ai:prompt skill tone_guidelines
+# creates app/ai/skills/prompts/tone_guidelines.md.erb
+
+rails generate active_ai:prompt orchestrator writing
+# creates app/ai/orchestrators/prompts/writing.md.erb
+```
+
+**Valid namespaces:** `agent`, `skill`, `orchestrator`, `workflow`, `tool`, `memory`
+
+The generator creates the directory if it doesn't exist and stubs the file with placeholder content. Files for `skill` and `orchestrator` namespaces include a note that they render without instance context — no `@ivars` or instance methods. All other namespaces generate a stub with instance-context hints.
+
+---
+
 ## `active_ai:skill`
 
 Generates a new skill class and its test file.

@@ -8,6 +8,40 @@ The library handles file resolution, ERB rendering with instance context, `parti
 
 ---
 
+## Generating a prompt file
+
+```bash
+rails generate active_ai:prompt agent writing
+# → app/ai/agents/prompts/writing.md.erb
+
+rails generate active_ai:prompt skill tone_guidelines
+# → app/ai/skills/prompts/tone_guidelines.md.erb
+
+rails generate active_ai:prompt orchestrator writing
+# → app/ai/orchestrators/prompts/writing.md.erb
+```
+
+The generator creates the directory if it doesn't exist and scaffolds a stub with placeholder content. Two different stubs are generated based on rendering context — see [Instance context vs class-level](#instance-context-vs-class-level) below.
+
+---
+
+## Instance context vs class-level rendering
+
+Not all prompt files render the same way. The distinction is critical — `@ivars` and instance methods that work in one context are simply unavailable in the other.
+
+| Namespace | Rendered by | Context available |
+|---|---|---|
+| `agent` | `prompt_file(:name)` on an agent instance | Full — `@ivars`, instance methods, `partial`, `skill` |
+| `tool` | `prompt_file(:name)` on a tool instance | Full — `@ivars`, instance methods |
+| `workflow` | `prompt_file(:name)` on a workflow instance | Full — `@ivars`, instance methods |
+| `memory` | `prompt_file(:name)` on a memory agent instance | Full — `@ivars`, instance methods |
+| `skill` | `prompt_file :name` class DSL | None — static content and ERB logic only |
+| `orchestrator` | `prompt_file :name` class DSL | None — static content and ERB logic only |
+
+Skills and orchestrators use `prompt_file` as a class-level DSL (not an instance method), so there is no live object in scope when the ERB renders. You can still use ERB conditionals and string interpolation with literals — you just cannot reference `@instance_variables` or call instance methods.
+
+---
+
 ## File locations
 
 Prompts are organized by namespace, mirroring the directory structure of your AI layer:

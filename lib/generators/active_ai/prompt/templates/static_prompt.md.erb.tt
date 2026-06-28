@@ -1,0 +1,5 @@
+[Describe the content or routing logic here.]
+
+[This file renders at class load time without instance context.]
+[No @ivars or instance methods — static content and ERB conditionals only.]
+[Remove these bracketed notes before use.]
