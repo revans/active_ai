@@ -16,7 +16,7 @@ module ActiveAI
     # namespaces. WritingAgent in app/ai/agents/ stays WritingAgent, the same
     # way UsersController in app/controllers/ stays UsersController.
     config.before_initialize do |app|
-      %w[agents tools skills commands workflows orchestrators memory].each do |dir|
+      %w[agents tools skills commands workflows orchestrators memory concerns].each do |dir|
         path = app.root.join("app/ai", dir).to_s
         Rails.autoloaders.main.collapse(path) if Dir.exist?(path)
       end
