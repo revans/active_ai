@@ -9,12 +9,25 @@ module ActiveAI
 
       private
 
-      def stream_agent(agent, &after_stream)
+      # close: true (default) preserves the original single-turn contract —
+      # writes the terminal [DONE] event and closes the response stream.
+      #
+      # Pass close: false to run one turn of a multi-turn exchange over a
+      # single open response (e.g. a controller relaying several agents in
+      # sequence): the response stays open so the caller can write its own
+      # events (a turn-boundary signal, another stream_agent call) before the
+      # final call in the sequence closes with close: true.
+      #
+      # close: false is only honored on the success path. Any error always
+      # writes [DONE] and closes — there is no next turn to hand the open
+      # response to once a turn has failed.
+      def stream_agent(agent, close: true, &after_stream)
         response.headers["Content-Type"]      = "text/event-stream"
         response.headers["Cache-Control"]     = "no-cache"
         response.headers["X-Accel-Buffering"] = "no"
 
         full_response = String.new
+        errored       = false
 
         # Rescue only here — a disconnect during chunk writes is fine,
         # we still have the accumulated text and must save it.
@@ -39,13 +52,16 @@ module ActiveAI
 
         full_response
       rescue => stream_error
+        errored = true
         Rails.logger.error("stream_conversation failed: #{stream_error.class} #{stream_error.message}")
         response.stream.write("data: #{JSON.generate(error: stream_error_message(stream_error))}\n\n") rescue nil
         full_response
       ensure
         # Must run even if after_stream raised — client hangs otherwise.
-        response.stream.write("data: [DONE]\n\n") rescue nil
-        response.stream.close
+        if close || errored
+          response.stream.write("data: [DONE]\n\n") rescue nil
+          response.stream.close
+        end
       end
 
       # Hook for controllers that want to persist memory after a streaming session ends.
