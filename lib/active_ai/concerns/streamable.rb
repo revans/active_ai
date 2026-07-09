@@ -7,8 +7,6 @@ module ActiveAI
         include ActionController::Live
       end
 
-      private
-
       # close: true (default) preserves the original single-turn contract —
       # writes the terminal [DONE] event and closes the response stream.
       #
@@ -63,6 +61,8 @@ module ActiveAI
           response.stream.close
         end
       end
+
+      private
 
       # Whether the most recent stream_agent call ended in an error. A chain-
       # orchestrating caller checks this after a close: false call to decide

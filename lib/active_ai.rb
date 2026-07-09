@@ -27,6 +27,7 @@ require "active_ai/concerns/describable"
 require "active_ai/instrumentation"
 require "active_ai/skill/base"
 require "active_ai/tool/base"
+require "active_ai/command/base"
 require "active_ai/tools/search_adapter/base"
 require "active_ai/tools/search_adapter/firecrawl"
 require "active_ai/tools/search_adapter/brave"
@@ -107,6 +108,11 @@ module ActiveAI
     # All registered skill classes (ActiveAI::Skill::Base descendants).
     def skills
       registry.values.select { |k| k < ActiveAI::Skill::Base }
+    end
+
+    # All registered command classes (ActiveAI::Command::Base descendants).
+    def commands
+      registry.values.select { |k| k < ActiveAI::Command::Base }
     end
 
     # Works like Rails.application.config — yields the active config object so
