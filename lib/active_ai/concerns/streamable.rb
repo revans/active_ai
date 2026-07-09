@@ -26,8 +26,8 @@ module ActiveAI
         response.headers["Cache-Control"]     = "no-cache"
         response.headers["X-Accel-Buffering"] = "no"
 
-        full_response = String.new
-        errored       = false
+        full_response  = String.new
+        @stream_errored = false
 
         # Rescue only here — a disconnect during chunk writes is fine,
         # we still have the accumulated text and must save it.
@@ -52,16 +52,24 @@ module ActiveAI
 
         full_response
       rescue => stream_error
-        errored = true
+        @stream_errored = true
         Rails.logger.error("stream_conversation failed: #{stream_error.class} #{stream_error.message}")
         response.stream.write("data: #{JSON.generate(error: stream_error_message(stream_error))}\n\n") rescue nil
         full_response
       ensure
         # Must run even if after_stream raised — client hangs otherwise.
-        if close || errored
+        if close || @stream_errored
           response.stream.write("data: [DONE]\n\n") rescue nil
           response.stream.close
         end
+      end
+
+      # Whether the most recent stream_agent call ended in an error. A chain-
+      # orchestrating caller checks this after a close: false call to decide
+      # whether to run the next turn — stream_agent has already emitted the
+      # scoped error event and closed the response in that case.
+      def stream_errored?
+        @stream_errored
       end
 
       # Hook for controllers that want to persist memory after a streaming session ends.
