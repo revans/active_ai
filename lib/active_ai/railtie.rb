@@ -21,5 +21,19 @@ module ActiveAI
         Rails.autoloaders.main.collapse(path) if Dir.exist?(path)
       end
     end
+
+    # app/ai/commands is resolved entirely through ActiveAI.commands (a
+    # registry scan) — unlike agents/tools, nothing in an app directly
+    # references a Command subclass by constant, so nothing would ever
+    # trigger its autoload. Without eager loading this directory specifically,
+    # ActiveAI.commands returns an empty array in any environment that
+    # doesn't eager_load the whole app (i.e. every environment except
+    # production). This runs on every to_prepare (boot, and before each
+    # request in development after a reload) so newly-added or reloaded
+    # command classes are always present in the registry.
+    config.to_prepare do
+      path = Rails.application.root.join("app/ai/commands").to_s
+      Rails.autoloaders.main.eager_load_dir(path) if Dir.exist?(path)
+    end
   end
 end
