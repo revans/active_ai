@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en" data-bp-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- SEO: title tag — 46 chars, "ActiveAI" in position 1, ActionMailer analogy signal included per brief (the page's most memorable differentiator for Rails developers) -->
+  <title>ActiveAI — ActionMailer for LLM Calls in Rails</title>
+
+  <!-- SEO: meta description — 153 chars, leads with the ActionMailer analogy (primary hook), names generators/agentic loop/instrumentation (secondary keywords) -->
+  <meta name="description" content="ActiveAI does for LLM calls what ActionMailer does for email — a Rails gem with generators, agentic loops, and full ActiveSupport instrumentation built in.">
+
+  <!-- SEO: keywords — supplemental signal for crawlers; primary terms cover gem name, Rails context, and competitor comparison space -->
+  <meta name="keywords" content="Rails AI agent gem, Ruby AI agent library, Rails LLM integration, ActiveAI gem, Rails AI instrumentation, ActionMailer for AI, agentic loop Rails, ActiveAI, Rails agents, OpenAI Rails, Anthropic Rails">
+
+  <!-- AI SEO: attribution — meta author tag, one of five required attribution signals (Check 5) -->
+  <meta name="author" content="Robert Evans">
+
+  <!-- SEO: canonical — specs/ path, trailing slash, lowercase, no index.html -->
+  <link rel="canonical" href="https://robertrevans.com/specs/active-ai/">
+
+  <!-- SEO: Open Graph — title matches <title> exactly -->
+  <meta property="og:title" content="ActiveAI — ActionMailer for LLM Calls in Rails">
+
+  <!-- SEO: Open Graph — description matches meta description -->
+  <meta property="og:description" content="ActiveAI does for LLM calls what ActionMailer does for email — a Rails gem with generators, agentic loops, and full ActiveSupport instrumentation built in.">
+
+  <!-- SEO: Open Graph — canonical URL, no trailing variation -->
+  <meta property="og:url" content="https://robertrevans.com/specs/active-ai/">
+
+  <!-- SEO: Open Graph — type and site attribution -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Robert Evans">
+
+  <!-- og:image: PENDING — fill before deploy (no hero image exists in this page; use a generated preview or social card at 1200×630) -->
+  <!-- SEO: structured data (primary) — SoftwareApplication chosen because ActiveAI is a Ruby gem that runs on a computer; includes author Person entity with sameAs for knowledge graph attribution -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ActiveAI",
+    "description": "A Rails-native Ruby gem that gives LLM calls a declared, testable home — with a built-in agentic loop, multi-agent workflows, provider abstraction, streaming, and full Rails instrumentation — following the same conventions Rails developers already know.",
+    "url": "https://robertrevans.com/specs/active-ai/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux, Windows",
+    "license": "https://opensource.org/licenses/MIT",
+    "codeRepository": "https://github.com/revans/active_ai",
+    "author": {
+      "@type": "Person",
+      "@id": "https://robertrevans.com/#robert-evans",
+      "name": "Robert Evans",
+      "url": "https://robertrevans.com",
+      "jobTitle": "CTO & Systems Builder",
+      "sameAs": [
+        "https://github.com/revans",
+        "https://linkedin.com/in/robertrevans"
+      ]
+    },
+    "datePublished": "2026-06-28",
+    "dateModified": "2026-06-28"
+  }
+  </script>
+  <!-- SEO: structured data (FAQPage) — 7 Q&A pairs; all answer text is verbatim from page content; covers definition, loop mechanics, routing modes, Rails conventions, instrumentation, providers, and origin -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is ActiveAI?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "ActiveAI does for LLM calls what ActionMailer does for email — gives them a declared, testable home with provider-agnostic abstractions, a built-in agentic loop, streaming support, and full Rails instrumentation."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How does the ActiveAI agentic loop work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Every agent call runs the same loop. The provider streams back either text chunks or tool calls. Tool calls are executed immediately and their results sent back. The loop continues until the provider returns a final text response with no pending tool calls."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is the difference between a Workflow and an Orchestrator in ActiveAI?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "A Workflow coordinates agents in a fixed sequence you define — deterministic, predictable, easy to test. An Orchestrator lets the LLM decide which agent or workflow to call at runtime based on the input."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What Rails conventions does ActiveAI follow?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "ActionMailer didn't make sending email easier by wrapping SMTP differently. It made it easier by giving email a place in your app. ActiveAI gives LLM calls the same thing: generators, config, conventions, and a class hierarchy the whole team can reason about."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What instrumentation does ActiveAI provide?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Every agent turn, tool dispatch, workflow step, skill resolution, and orchestrator route fires an event. The flight recorder is always on. Attach subscribers only when you need them."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What LLM providers does ActiveAI support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The framework is provider-agnostic at the routing level. Anthropic, OpenAI, and xAI are supported. Switching providers is one line; prompt tuning for the new model is a separate concern."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Where did ActiveAI come from?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "ActiveAI was extracted from writer-v3, a personal writing application built around a human-first philosophy: the writer owns the work; AI assists with editing, suggests improvements, and explains its reasoning — but never drives."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <!-- CSS load order: base → mood → brand -->
+  <link rel="stylesheet" href="/assets/the-point/index.css">
+  <link rel="stylesheet" href="/assets/the-point/moods/slate.css">
+  <link rel="stylesheet" href="./brand.css">
+</head>
+<body>
+
+  <!-- NAV — minimal: gem name left, GitHub right -->
+  <nav class="bp-nav">
+    <div class="bp-container bp-nav-inner">
+      <a href="#" class="bp-nav-brand">ActiveAI</a>
+      <div class="bp-nav-actions">
+        <span class="active-ai-badge active-ai-badge--dev bp-hide-mobile">Active Development</span>
+        <a href="https://github.com/revans/active_ai" class="bp-btn bp-btn-outline bp-btn-sm" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PIPELINE PAGE — the vertical SVG wire + 12 pipeline nodes
+       ══════════════════════════════════════════════════════════════ -->
+  <div class="pipeline-page">
+
+    <!-- SVG wire — built and animated by JS after layout -->
+    <svg class="pipeline-wire" aria-hidden="true" id="pipeline-wire-svg"></svg>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 00 — HERO (INSTALL)
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="hero" data-node-index="0">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-0"></div>
+        <span class="pipeline-node-label">Install</span>
+      </div>
+      <div class="pipeline-node-right">
+        <!-- AI SEO: AP annotation — topic=what-is-this kind=summary on hero h1 (Check 1: entity clarity, one-line value statement) -->
+        <h1 topic="what-is-this" kind="summary">LLM calls deserve a home.</h1>
+        <!-- AI SEO: AP annotation — topic=what-is-this kind=definition on hero lead (Check 2: "What is ActiveAI?") -->
+        <p class="pipeline-hero-lead" topic="what-is-this" kind="definition">
+          ActiveAI does for LLM calls what ActionMailer does for email — gives them a declared,
+          testable home with provider-agnostic abstractions, a built-in agentic loop, streaming
+          support, and full Rails instrumentation. Stop reinventing the plumbing.
+        </p>
+
+        <div style="margin-bottom: 1.5rem;">
+          <span class="active-ai-eyebrow" style="margin-bottom: 0.375rem;">Quick install</span>
+          <div class="active-ai-install" style="max-width: 520px;">
+            <span class="code-prompt">$ </span><span id="hero-install-cmd"></span><span class="tw-cursor" id="tw-cursor">▌</span>
+          </div>
+        </div>
+
+        <div class="bp-flex bp-gap-3" style="flex-wrap: wrap; align-items: center; margin-bottom: 1.5rem;">
+          <a href="https://github.com/revans/active_ai" class="bp-btn bp-btn-primary bp-btn-lg" target="_blank" rel="noopener">View on GitHub ↗</a>
+          <a href="#problem" class="bp-btn bp-btn-ghost bp-btn-lg">See the problem it solves →</a>
+        </div>
+
+        <div class="bp-flex bp-gap-3" style="flex-wrap: wrap;">
+          <span class="active-ai-badge active-ai-badge--dev">Active Development</span>
+          <span class="active-ai-badge active-ai-badge--stable">Ruby ≥ 3.2</span>
+          <span class="active-ai-badge active-ai-badge--stable">Rails ≥ 7.0</span>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 01 — PROBLEM (BEFORE)
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="problem" data-node-index="1">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-1"></div>
+        <span class="pipeline-node-label">Before</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>LLM calls don't have a home in Rails. Yet.</h2>
+        <!-- AI SEO: AP annotation — topic=problem kind=key-point (Check 2: "What problem does ActiveAI solve?") -->
+        <p topic="problem" kind="key-point">
+          Without a convention, they end up wherever they fit — controllers, service objects,
+          background jobs — each reinventing message formatting, tool dispatch, provider routing,
+          and streaming. The same four bugs appear in every codebase.
+        </p>
+
+        <div class="before-after-grid">
+          <div>
+            <span class="before-label">Before — scattered, reinvented</span>
+            <pre class="active-ai-codeblock"><code><span class="code-comment"># app/controllers/documents_controller.rb</span>
+<span class="code-keyword">def</span> <span class="code-method">summarize</span>
+  client = <span class="code-class">Anthropic</span>::<span class="code-class">Client</span>.new
+  response = client.messages.create(
+    model: <span class="code-string">"claude-sonnet-4-6"</span>,
+    max_tokens: <span class="code-string">1024</span>,
+    system: <span class="code-string">"You are a writing assistant."</span>,
+    messages: [{ role: <span class="code-string">"user"</span>,
+                 content: <span class="code-string">"Summarize: #{@document.body}"</span> }]
+  )
+  <span class="code-comment"># no streaming, no tools, no instrumentation,</span>
+  <span class="code-comment"># no error handling, provider-specific API…</span>
+  render json: { result: response.content.first.text }
+<span class="code-keyword">end</span>
+
+<span class="code-comment"># Same thing copied into PostsController,</span>
+<span class="code-comment"># CommentsController, AiReviewJob…</span></code></pre>
+          </div>
+          <div>
+            <span class="after-label">After — declared, testable, instrumented</span>
+            <pre class="active-ai-codeblock"><code><span class="code-comment"># app/ai/agents/writing_agent.rb</span>
+<span class="code-keyword">class</span> <span class="code-class">WritingAgent</span> &lt; <span class="code-class">ApplicationAgent</span>
+  tools  <span class="code-class">ActiveAI</span>::<span class="code-class">Tools</span>::<span class="code-class">WebSearch</span>
+  skills <span class="code-class">ToneSkill</span>
+
+  <span class="code-keyword">def</span> <span class="code-method">initialize</span>(document:, **kwargs)
+    <span class="code-string">@document</span> = document
+    super(**kwargs)
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span>
+
+<span class="code-comment"># Blocking call — full agentic loop</span>
+response = <span class="code-class">WritingAgent</span>.new(
+  document: <span class="code-string">@doc</span>,
+  message:  <span class="code-string">"Summarize this."</span>
+).complete
+
+<span class="code-comment"># Streaming — same agent, yields chunks</span>
+<span class="code-class">WritingAgent</span>.new(document: <span class="code-string">@doc</span>, message: <span class="code-string">"…"</span>)
+  .stream { |e| send_to_client(e) <span class="code-keyword">if</span> e.is_a?(<span class="code-class">String</span>) }</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 02 — ANALOGY (RAILS)
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="analogy" data-node-index="2">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-2"></div>
+        <span class="pipeline-node-label">Rails</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>If you know ActionMailer, you already understand this.</h2>
+        <p>
+          ActionMailer didn't make sending email easier by wrapping SMTP differently.
+          It made it easier by giving email a <em>place in your app</em>. ActiveAI gives LLM
+          calls the same thing: generators, config, conventions, and a class hierarchy the whole
+          team can reason about.
+        </p>
+
+        <table class="active-ai-analogy-table">
+          <thead>
+            <tr>
+              <th>Rails / ActionMailer</th>
+              <th>ActiveAI</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ActionMailer::Base</code></td>
+              <td><code>ActiveAI::Agent::Base</code></td>
+            </tr>
+            <tr>
+              <td><code>ApplicationMailer</code></td>
+              <td><code>ApplicationAgent</code></td>
+            </tr>
+            <tr>
+              <td><code>UserMailer &lt; ApplicationMailer</code></td>
+              <td><code>WritingAgent &lt; ApplicationAgent</code></td>
+            </tr>
+            <tr>
+              <td>SMTP delivery method</td>
+              <td><code>ActiveAI::Provider::Anthropic</code></td>
+            </tr>
+            <tr>
+              <td><code>config/database.yml</code></td>
+              <td><code>config/ai.yml</code></td>
+            </tr>
+            <tr>
+              <td><code>config.action_mailer</code></td>
+              <td><code>ActiveAI.configure</code></td>
+            </tr>
+            <tr>
+              <td><code>rails g mailer User</code></td>
+              <td><code>rails g active_ai:agent Writing</code></td>
+            </tr>
+            <tr>
+              <td><code>ActionMailer::Base.deliveries</code> (test)</td>
+              <td><code>ActiveAI::TestHelper</code> + stubs</td>
+            </tr>
+            <tr>
+              <td><code>ActionMailer::Base.delivery_method</code></td>
+              <td><code>provider :anthropic</code> / <code>:openai</code> / <code>:xai</code></td>
+            </tr>
+            <tr>
+              <td><code>mail.deliver_later</code></td>
+              <td><code>agent.stream { |event| … }</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="bp-annotation" style="margin-top: 1.25rem;">
+          If you've onboarded someone to ActionMailer, the same mental model transfers.
+          The agent class is where LLM configuration lives; the instance is one conversation;
+          the provider is the delivery mechanism.
+        </p>
+
+        <!-- AI SEO: answer density — competitor comparison table added from brief competitive landscape section (Check 2: "How is ActiveAI different from alternatives?", Check 6: ChatGPT table extraction signal) -->
+        <!-- AI SEO: AP annotation — topic=differentiation kind=reference -->
+        <div topic="differentiation" kind="reference" style="margin-top: 2rem;">
+          <span class="active-ai-eyebrow" style="margin-bottom: 0.75rem;">ActiveAI vs. other Ruby AI libraries</span>
+          <div style="overflow-x: auto;">
+            <table class="active-ai-analogy-table">
+              <thead>
+                <tr>
+                  <th>Library</th>
+                  <th>Rails generators</th>
+                  <th>config/ai.yml</th>
+                  <th>Agentic loop</th>
+                  <th>Workflows &amp; orchestration</th>
+                  <th>ActiveSupport instrumentation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>ActiveAI</strong></td>
+                  <td>Yes</td>
+                  <td>Yes</td>
+                  <td>Yes</td>
+                  <td>Yes (Workflow + Orchestrator)</td>
+                  <td>Yes (10+ events)</td>
+                </tr>
+                <tr>
+                  <td>langchainrb</td>
+                  <td>No</td>
+                  <td>No</td>
+                  <td>Partial</td>
+                  <td>No</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <td>ruby_llm</td>
+                  <td>No</td>
+                  <td>No</td>
+                  <td>No</td>
+                  <td>No</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <td>Direct SDK gems</td>
+                  <td>No</td>
+                  <td>No</td>
+                  <td>Manual</td>
+                  <td>No</td>
+                  <td>No</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="bp-annotation" style="margin-top: 0.75rem;">langchainrb (~2k GitHub stars) works in any Ruby context but is not Rails-first: no generators, no <code class="code-accent">config/ai.yml</code>, no <code class="code-accent">ActiveSupport::Notifications</code>. ruby_llm is Rails-friendly for single-turn chat but has no agentic loop, workflows, or memory pipeline. Direct SDK gems (ruby-openai, anthropic) are low-level API wrappers — you write the loop, tool dispatch, and error handling yourself. ActiveAI gives you all five conventions together.</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 03 — ARCHITECTURE (AGENT)
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="architecture" data-node-index="3">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-3"></div>
+        <span class="pipeline-node-label">Agent</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>What the library handles vs. what you implement</h2>
+
+        <!-- Animated vertical chain diagram -->
+        <div class="active-ai-diagram" id="arch-diagram" style="margin-bottom: 1.5rem; max-width: 380px;">
+          <svg class="ai-diagram-svg" viewBox="0 0 360 290" xmlns="http://www.w3.org/2000/svg" aria-label="Agent call architecture: Build Messages, Build System Prompt, Stream Loop, Tool Dispatch, Final Response">
+            <defs>
+              <marker id="arch-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" style="fill: var(--active-ai-flow-stroke);" />
+              </marker>
+            </defs>
+
+            <!-- Box 1: Build Messages -->
+            <rect class="arch-node" id="arch-n1" x="105" y="12" width="150" height="34" rx="0"/>
+            <text class="arch-text" x="180" y="33" text-anchor="middle">Build Messages</text>
+
+            <!-- Arrow 1→2 -->
+            <path class="arch-path" id="arch-p1" d="M 180 46 L 180 66" marker-end="url(#arch-arrow)"/>
+
+            <!-- Box 2: Build System Prompt -->
+            <rect class="arch-node" id="arch-n2" x="80" y="66" width="200" height="34" rx="0"/>
+            <text class="arch-text" x="180" y="87" text-anchor="middle">Build System Prompt</text>
+
+            <!-- Arrow 2→3 -->
+            <path class="arch-path" id="arch-p2" d="M 180 100 L 180 120" marker-end="url(#arch-arrow)"/>
+
+            <!-- Box 3: Stream Loop (highlighted — the core) -->
+            <rect class="arch-node arch-node-active" id="arch-n3" x="105" y="120" width="150" height="34" rx="0"/>
+            <text class="arch-text" x="180" y="141" text-anchor="middle" style="fill: var(--color-text);">Stream Loop</text>
+
+            <!-- Arrow 3→4 -->
+            <path class="arch-path" id="arch-p3" d="M 180 154 L 180 174" marker-end="url(#arch-arrow)"/>
+
+            <!-- Box 4: Tool Dispatch (amber) -->
+            <rect class="arch-node arch-node-tool" id="arch-n4" x="105" y="174" width="150" height="34" rx="0"/>
+            <text class="arch-text" x="180" y="195" text-anchor="middle" style="fill: #D97706;">Tool Dispatch</text>
+
+            <!-- Arrow 4→5 -->
+            <path class="arch-path" id="arch-p4" d="M 180 208 L 180 228" marker-end="url(#arch-arrow)"/>
+
+            <!-- Box 5: Final Response -->
+            <rect class="arch-node arch-node-active" id="arch-n5" x="80" y="228" width="200" height="34" rx="0"/>
+            <text class="arch-text" x="180" y="249" text-anchor="middle" style="fill: var(--color-text);">Final Response</text>
+
+            <!-- Loop-back annotation on the right side -->
+            <text class="loop-label" x="270" y="162" style="fill: var(--color-text-muted);">iterates</text>
+            <text class="loop-label" x="270" y="172" style="fill: var(--color-text-muted);">until done</text>
+          </svg>
+          <p class="diagram-caption">Single agent call — library manages the loop</p>
+        </div>
+
+        <div class="bp-flex bp-gap-3" style="flex-wrap: wrap; margin-bottom: 1.25rem; align-items: flex-start;">
+          <div style="flex: 1; min-width: 240px;">
+            <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Library handles</span>
+            <ul class="arch-feature-list">
+              <li><code>agentic loop</code> — stream → tool dispatch → continue</li>
+              <li>Provider routing, streaming, token counting</li>
+              <li><code>complete</code> accumulation, <code>run</code> class method</li>
+              <li>Tool execution and error recovery inside the loop</li>
+            </ul>
+          </div>
+          <div style="flex: 1; min-width: 240px;">
+            <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">You implement</span>
+            <ul class="arch-feature-list">
+              <li>Agent class inheriting <code>ApplicationAgent</code></li>
+              <li>Class DSL: <code>provider</code>, <code>model</code>, <code>tools</code>, <code>skills</code></li>
+              <li><code>initialize</code> when injecting domain objects</li>
+              <li><code>instance_tools</code> when tools need per-call context</li>
+            </ul>
+          </div>
+        </div>
+
+        <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Minimal agent class</span>
+        <pre class="active-ai-codeblock"><code><span class="code-keyword">class</span> <span class="code-class">WritingAgent</span> &lt; <span class="code-class">ApplicationAgent</span>
+  provider <span class="code-string">:anthropic</span>
+  model    <span class="code-string">"claude-sonnet-4-6"</span>, max_tokens: 8096
+  tools    <span class="code-class">ActiveAI</span>::<span class="code-class">Tools</span>::<span class="code-class">WebSearch</span>
+  skills   <span class="code-class">ToneSkill</span>
+  description <span class="code-string">"Drafts, edits, and structures written content."</span>
+
+  <span class="code-keyword">def</span> <span class="code-method">initialize</span>(document:, **kwargs)
+    <span class="code-string">@document</span> = document
+    super(**kwargs)
+  <span class="code-keyword">end</span>
+
+  <span class="code-keyword">def</span> <span class="code-method">instance_tools</span>
+    return [] <span class="code-keyword">unless</span> <span class="code-string">@document</span>
+    [
+      <span class="code-class">WriteDocumentSectionTool</span>.new(document: <span class="code-string">@document</span>),
+      <span class="code-class">InsertDocumentSectionTool</span>.new(document: <span class="code-string">@document</span>)
+    ]
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span>
+
+<span class="code-comment"># Inspect what will be sent — no API call</span>
+params = <span class="code-class">WritingAgent</span>.new(document: <span class="code-string">@doc</span>, message: <span class="code-string">"Rewrite section 3."</span>).to_canonical_params
+params[:system]    <span class="code-comment"># =&gt; resolved system prompt with injected skills</span>
+params[:tools]     <span class="code-comment"># =&gt; [{ name: "web_search", … }, { name: "write_document_section", … }]</span></code></pre>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 04 — AGENTIC LOOP (LOOP) — Priority animation #1
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="agentic-loop" data-node-index="4">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-4"></div>
+        <span class="pipeline-node-label">Loop</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>Stream → tool call → continue → repeat until done</h2>
+        <!-- AI SEO: AP annotation — topic=how-it-works kind=overview on agentic loop paragraph (Check 2: "How does ActiveAI work?", Check 3: defines the agentic loop concept) -->
+        <p topic="how-it-works" kind="overview">
+          Every agent call runs the same cycle. The provider streams back either text chunks or tool calls.
+          Tool calls are executed immediately and their results sent back. The loop continues until the
+          provider returns a final text response with no pending tool calls.
+        </p>
+
+        <!-- Agentic Loop Cycle — SVG circle with 6 nodes -->
+        <div class="active-ai-diagram" id="loop-diagram">
+          <svg class="ai-diagram-svg" viewBox="0 0 560 320" xmlns="http://www.w3.org/2000/svg" aria-label="Agentic loop cycle: Request, Provider, Stream, Tool Call, Execute, Continue — arrows trace the cycle clockwise. A dashed arrow from Stream exits to Final Response when no tool calls are needed.">
+            <defs>
+              <marker id="loop-arr-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" style="fill: var(--active-ai-flow-stroke);" />
+              </marker>
+              <marker id="loop-arr-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#D97706" />
+              </marker>
+              <marker id="loop-arr-muted" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" style="fill: var(--color-text-muted);" />
+              </marker>
+            </defs>
+
+            <!-- 6 nodes arranged hexagonally, clockwise from top -->
+
+            <!-- Node 0: Request (top) — center (220, 45) -->
+            <rect class="loop-node" id="ln-0" x="172" y="27" width="96" height="34" rx="0"
+                  style="fill: var(--active-ai-node-bg); stroke: var(--active-ai-flow-stroke); stroke-width: 1;"/>
+            <text class="loop-text" x="220" y="48" text-anchor="middle">Request</text>
+
+            <!-- Node 1: Provider (top-right) — center (320, 103) -->
+            <rect class="loop-node" id="ln-1" x="272" y="86" width="96" height="34" rx="0"
+                  style="fill: var(--active-ai-node-bg); stroke: var(--active-ai-flow-stroke); stroke-width: 1.5;"/>
+            <text class="loop-text" x="320" y="107" text-anchor="middle">Provider</text>
+
+            <!-- Node 2: Stream (bottom-right) — center (320, 218) -->
+            <rect class="loop-node" id="ln-2" x="272" y="201" width="96" height="34" rx="0"
+                  style="fill: var(--active-ai-node-bg); stroke: var(--active-ai-flow-stroke); stroke-width: 1;"/>
+            <text class="loop-text" x="320" y="222" text-anchor="middle">Stream</text>
+
+            <!-- Node 3: Tool Call (bottom) — center (220, 275), amber -->
+            <rect class="loop-node loop-node-tool" id="ln-3" x="172" y="258" width="96" height="34" rx="0"/>
+            <text class="loop-text loop-text-tool" x="220" y="276" text-anchor="middle">Tool</text>
+            <text class="loop-text loop-text-tool" x="220" y="288" text-anchor="middle">Call</text>
+
+            <!-- Node 4: Execute (bottom-left) — center (120, 218), amber -->
+            <rect class="loop-node loop-node-tool" id="ln-4" x="72" y="201" width="96" height="34" rx="0"/>
+            <text class="loop-text loop-text-tool" x="120" y="222" text-anchor="middle">Execute</text>
+
+            <!-- Node 5: Continue (top-left) — center (120, 103) -->
+            <rect class="loop-node" id="ln-5" x="72" y="86" width="96" height="34" rx="0"
+                  style="fill: var(--active-ai-node-bg); stroke: var(--active-ai-flow-stroke); stroke-width: 1;"/>
+            <text class="loop-text" x="120" y="107" text-anchor="middle">Continue</text>
+
+            <!-- Final Response (right) — center (462, 160) -->
+            <rect class="loop-node" id="ln-fr" x="428" y="143" width="120" height="34" rx="0"
+                  style="fill: var(--active-ai-node-active); stroke: var(--active-ai-flow-stroke); stroke-width: 1;"/>
+            <text class="loop-text" x="488" y="162" text-anchor="middle" style="fill: var(--color-text);">Final Response</text>
+
+            <!-- Cycle arrows (draw in sequence with Pattern 2) -->
+
+            <!-- 0→1: Request → Provider (diagonal right-down) -->
+            <path class="loop-path" id="lp-01"
+                  d="M 249 61 L 276 86"
+                  marker-end="url(#loop-arr-blue)"/>
+
+            <!-- 1→2: Provider → Stream (straight down) -->
+            <path class="loop-path" id="lp-12"
+                  d="M 320 120 L 320 201"
+                  marker-end="url(#loop-arr-blue)"/>
+
+            <!-- 2→3: Stream → Tool Call (diagonal down-left) — tool path -->
+            <path class="loop-path loop-path-tool" id="lp-23"
+                  d="M 301 235 L 264 258"
+                  marker-end="url(#loop-arr-amber)"/>
+
+            <!-- 3→4: Tool Call → Execute (diagonal left-up) — tool path -->
+            <path class="loop-path loop-path-tool" id="lp-34"
+                  d="M 172 272 L 168 235"
+                  marker-end="url(#loop-arr-amber)"/>
+
+            <!-- 4→5: Execute → Continue (straight up) — back to blue -->
+            <path class="loop-path" id="lp-45"
+                  d="M 120 201 L 120 120"
+                  marker-end="url(#loop-arr-blue)"/>
+
+            <!-- 5→0: Continue → Request (diagonal right-up) -->
+            <path class="loop-path" id="lp-50"
+                  d="M 168 86 L 192 61"
+                  marker-end="url(#loop-arr-blue)"/>
+
+            <!-- Exit: Stream → Final Response (dashed, text-only path) -->
+            <path class="loop-path loop-path-exit" id="lp-exit"
+                  d="M 368 218 L 428 160"
+                  marker-end="url(#loop-arr-muted)"/>
+
+            <!-- Arrow labels -->
+            <text class="loop-text-muted" x="270" y="75" text-anchor="middle" style="font-size: 9px; font-family: var(--font-mono);">call</text>
+            <text class="loop-text-muted" x="335" y="163" text-anchor="start" style="font-size: 9px; font-family: var(--font-mono);">stream</text>
+            <text class="loop-text-muted" x="300" y="253" text-anchor="middle" style="font-size: 9px; font-family: var(--font-mono);">tool calls</text>
+            <text class="loop-text-muted" x="155" y="253" text-anchor="middle" style="font-size: 9px; font-family: var(--font-mono);">results</text>
+            <text class="loop-text-muted" x="104" y="163" text-anchor="end" style="font-size: 9px; font-family: var(--font-mono);">continue</text>
+            <text class="loop-text-muted" x="170" y="70" text-anchor="middle" style="font-size: 9px; font-family: var(--font-mono);">continue</text>
+            <text class="loop-text-muted" x="408" y="193" text-anchor="end" style="font-size: 9px; font-family: var(--font-mono);">text only</text>
+
+            <!-- Guard note -->
+            <text class="loop-label" x="6" y="310" style="fill: var(--color-text-muted);">MAX_TOOL_ITERATIONS = 20 → raises ToolLoopError if exceeded</text>
+          </svg>
+          <p class="diagram-caption">Agentic loop — arrows draw on scroll entry. Blue = LLM steps. Amber = tool execution.</p>
+        </div>
+
+        <div class="before-after-grid" style="margin-top: 1.5rem;">
+          <div>
+            <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Stream events</span>
+            <pre class="active-ai-codeblock"><code>agent.stream <span class="code-keyword">do</span> |event|
+  <span class="code-keyword">case</span> event
+  <span class="code-keyword">when</span> <span class="code-class">String</span>
+    <span class="code-comment"># text chunk — write to SSE client</span>
+    send_to_client(event)
+  <span class="code-keyword">when</span> <span class="code-class">Hash</span>
+    <span class="code-comment"># { tool_call: { id:, name:, input: } }</span>
+    <span class="code-comment"># dispatched automatically</span>
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span></code></pre>
+          </div>
+          <div>
+            <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Loop guard &amp; token usage</span>
+            <pre class="active-ai-codeblock"><code><span class="code-keyword">class</span> <span class="code-class">ResearchAgent</span> &lt; <span class="code-class">ApplicationAgent</span>
+  <span class="code-comment"># Override per agent when needed</span>
+  <span class="code-class">MAX_TOOL_ITERATIONS</span> = 40
+<span class="code-keyword">end</span>
+
+agent.last_usage
+<span class="code-comment"># =&gt; {</span>
+<span class="code-comment">#      input_tokens:      412,</span>
+<span class="code-comment">#      output_tokens:      89,</span>
+<span class="code-comment">#      cache_read_tokens: 100,</span>
+<span class="code-comment">#      stop_reason:   "end_turn"</span>
+<span class="code-comment">#    }</span></code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 05 — WORKFLOWS (ROUTE) — Priority animation #2
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="workflows" data-node-index="5">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-5"></div>
+        <span class="pipeline-node-label">Route</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>Fixed rails or dynamic dispatch — pick the right tool</h2>
+        <!-- AI SEO: AP annotation — topic=workflow kind=definition (Check 3: defines both Workflow and Orchestrator at first mention) -->
+        <p topic="workflow" kind="definition">
+          Two routing modes. A Workflow coordinates agents in a fixed sequence you define —
+          deterministic, predictable, easy to test. An Orchestrator lets the LLM decide which agent
+          or workflow to call at runtime based on the input.
+        </p>
+
+        <!-- Workflow vs Orchestrator side-by-side SVG -->
+        <div class="active-ai-diagram" id="workflow-diagram">
+          <svg class="ai-diagram-svg" viewBox="0 0 640 290" xmlns="http://www.w3.org/2000/svg" aria-label="Side-by-side comparison: Workflow (deterministic step chain) versus Orchestrator (LLM-routed dynamic dispatch)">
+            <defs>
+              <marker id="wf-arrow" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0, 7 2.5, 0 5" style="fill: var(--active-ai-flow-stroke);" />
+              </marker>
+              <marker id="orch-arrow" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0, 7 2.5, 0 5" style="fill: var(--active-ai-flow-stroke);" />
+              </marker>
+            </defs>
+
+            <!-- ── LEFT: Workflow (deterministic) ── -->
+            <text class="compare-label" x="155" y="18" text-anchor="middle">Workflow</text>
+            <text class="compare-text" x="155" y="30" text-anchor="middle" style="font-size: 8px;">deterministic · step() chain</text>
+
+            <rect class="compare-node" id="wf-in" x="100" y="42" width="110" height="32" rx="0"/>
+            <text class="compare-text" x="155" y="62" text-anchor="middle">input</text>
+
+            <rect class="compare-node" id="wf-s1" x="90" y="106" width="130" height="32" rx="0"/>
+            <text class="compare-text" x="155" y="126" text-anchor="middle">ResearchAgent</text>
+
+            <rect class="compare-node" id="wf-s2" x="90" y="166" width="130" height="32" rx="0"/>
+            <text class="compare-text" x="155" y="186" text-anchor="middle">DraftingAgent</text>
+
+            <rect class="compare-node" id="wf-s3" x="90" y="226" width="130" height="32" rx="0"/>
+            <text class="compare-text" x="155" y="246" text-anchor="middle">ReviewAgent</text>
+
+            <path class="compare-path compare-path-active" id="wf-p1" d="M 155 74 L 155 106" marker-end="url(#wf-arrow)"/>
+            <path class="compare-path compare-path-active" id="wf-p2" d="M 155 138 L 155 166" marker-end="url(#wf-arrow)"/>
+            <path class="compare-path compare-path-active" id="wf-p3" d="M 155 198 L 155 226" marker-end="url(#wf-arrow)"/>
+
+            <text class="loop-label" x="162" y="93" style="fill: var(--color-text-muted);">step 1</text>
+            <text class="loop-label" x="162" y="155" style="fill: var(--color-text-muted);">step 2</text>
+            <text class="loop-label" x="162" y="215" style="fill: var(--color-text-muted);">step 3</text>
+
+            <!-- Divider -->
+            <line x1="320" y1="8" x2="320" y2="278" style="stroke: var(--color-border); stroke-width: 1;"/>
+
+            <!-- ── RIGHT: Orchestrator (LLM-routed) ── -->
+            <text class="compare-label" x="490" y="18" text-anchor="middle">Orchestrator</text>
+            <text class="compare-text" x="490" y="30" text-anchor="middle" style="font-size: 8px;">LLM-routed · dynamic dispatch</text>
+
+            <rect class="compare-node" id="orch-in" x="434" y="42" width="112" height="32" rx="0"/>
+            <text class="compare-text" x="490" y="62" text-anchor="middle">input</text>
+
+            <rect class="compare-node-orchestrator" id="orch-llm" x="414" y="106" width="152" height="32" rx="0"/>
+            <text class="compare-text" x="490" y="122" text-anchor="middle" style="fill: var(--color-text);">LLM Orchestrator</text>
+            <text class="compare-text" x="490" y="134" text-anchor="middle" style="font-size: 8px; fill: var(--color-text-muted);">routes via meta-tools</text>
+
+            <rect class="compare-node" id="orch-a" x="342" y="196" width="96" height="32" rx="0"/>
+            <text class="compare-text" x="390" y="216" text-anchor="middle">Writing</text>
+            <text class="compare-text" x="390" y="226" text-anchor="middle" style="font-size: 8px;">Agent</text>
+
+            <rect class="compare-node" id="orch-b" x="442" y="196" width="96" height="32" rx="0"/>
+            <text class="compare-text" x="490" y="216" text-anchor="middle">Research</text>
+            <text class="compare-text" x="490" y="226" text-anchor="middle" style="font-size: 8px;">Agent</text>
+
+            <rect class="compare-node" id="orch-c" x="542" y="196" width="96" height="32" rx="0"/>
+            <text class="compare-text" x="590" y="216" text-anchor="middle">Publish</text>
+            <text class="compare-text" x="590" y="226" text-anchor="middle" style="font-size: 8px;">Workflow</text>
+
+            <path class="compare-path compare-path-active" id="orch-p0" d="M 490 74 L 490 106" marker-end="url(#orch-arrow)"/>
+            <path class="compare-path" id="orch-p1" d="M 462 138 L 390 196" marker-end="url(#orch-arrow)"/>
+            <path class="compare-path" id="orch-p2" d="M 490 138 L 490 196" marker-end="url(#orch-arrow)"/>
+            <path class="compare-path" id="orch-p3" d="M 518 138 L 590 196" marker-end="url(#orch-arrow)"/>
+
+            <text class="compare-text" x="490" y="180" text-anchor="middle" style="font-size: 8px; fill: var(--color-text-muted);">picks at runtime</text>
+          </svg>
+          <p class="diagram-caption">Left: <code>step()</code> chain — you control the order. Right: LLM picks the target at runtime.</p>
+        </div>
+
+        <div class="before-after-grid" style="margin-top: 1.5rem;">
+          <div>
+            <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Workflow — fixed sequence</span>
+            <pre class="active-ai-codeblock"><code><span class="code-keyword">class</span> <span class="code-class">ResearchAndDraftWorkflow</span> &lt; <span class="code-class">ApplicationWorkflow</span>
+  <span class="code-keyword">def</span> <span class="code-method">run</span>(input)
+    research = step(<span class="code-class">ResearchAgent</span>, message: input)
+    draft    = step(<span class="code-class">DraftingAgent</span>,
+                   message: <span class="code-string">"Write based on:\n#{research}"</span>)
+    step(<span class="code-class">ReviewAgent</span>,
+         message: <span class="code-string">"Review and improve:\n#{draft}"</span>)
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span>
+
+<span class="code-comment"># Parallel steps — concurrent, ordered results</span>
+parallel_step(
+  [<span class="code-class">ResearchAgent</span>,  { message: <span class="code-string">"Find AI news."</span> }],
+  [<span class="code-class">FactCheckAgent</span>, { message: <span class="code-string">"Verify: #{claims}"</span> }]
+)</code></pre>
+          </div>
+          <div>
+            <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Orchestrator — LLM routes</span>
+            <pre class="active-ai-codeblock"><code><span class="code-keyword">class</span> <span class="code-class">WritingOrchestrator</span> &lt; <span class="code-class">ApplicationOrchestrator</span>
+  <span class="code-comment"># Agents register via `description`</span>
+  <span class="code-comment"># Orchestrator sees them as meta-tools</span>
+  <span class="code-comment"># and picks the right one at runtime</span>
+<span class="code-keyword">end</span>
+
+<span class="code-keyword">class</span> <span class="code-class">WritingAgent</span> &lt; <span class="code-class">ApplicationAgent</span>
+  description <span class="code-string">"Drafts and edits written content."</span>
+  <span class="code-comment"># ^ registers in ActiveAI.registry</span>
+<span class="code-keyword">end</span>
+
+result = <span class="code-class">WritingOrchestrator</span>.new(
+  message: <span class="code-string">"Edit the intro for clarity."</span>
+).complete</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- internal link opportunity: Simple Context Memory — no page yet (https://robertrevans.com/specs/simple-context-memory/) — relevant if that concept page is ever published alongside this one -->
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 06 — MEMORY — Priority animation #3
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="memory" data-node-index="6">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-6"></div>
+        <span class="pipeline-node-label">Memory</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>Behavior injection and cross-session recall</h2>
+
+        <!-- AI SEO: definition clarity — explicit named-concept definition for "memory pipeline"; previously only described through diagram labels; topic=memory-pipeline kind=definition (Check 3) -->
+        <p topic="memory-pipeline" kind="definition" style="margin-bottom: 1.5rem;">
+          The <strong>memory pipeline</strong> is a four-stage background processing system that converts completed agent conversations into searchable, tiered memory: <code class="code-accent">PersistJob</code> summarizes each session immediately after a turn, <code class="code-accent">EmbedJob</code> generates vector embeddings for semantic recall, <code class="code-accent">TierJob</code> ages memories from warm to cold storage on a daily schedule, and <code class="code-accent">ConsolidateJob</code> detects relationships between memory pairs on a weekly schedule. Agents opt in per class using <code class="code-accent">recall_memory</code> and receive relevant memories as prepended system-prompt context.
+        </p>
+
+        <div class="before-after-grid" style="margin-bottom: 1.75rem;">
+          <div>
+            <h3>Skills — behavioral instruction blocks</h3>
+            <!-- AI SEO: AP annotation — topic=skills kind=definition (Check 3: named concept definition at first mention) -->
+            <p class="pipeline-section-sublead" topic="skills" kind="definition">
+              Reusable instruction blocks injected into an agent's system prompt. Define once, attach to any agent.
+            </p>
+            <pre class="active-ai-codeblock"><code><span class="code-keyword">class</span> <span class="code-class">ToneSkill</span> &lt; <span class="code-class">ApplicationSkill</span>
+  skill_name <span class="code-string">"tone_guidelines"</span>
+
+  <span class="code-keyword">def</span> <span class="code-method">content</span>
+    <span class="code-string">"Always use active voice. Be concise.
+     Prefer concrete examples over abstractions.
+     Do not use marketing language."</span>
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span>
+
+<span class="code-keyword">class</span> <span class="code-class">WritingAgent</span> &lt; <span class="code-class">ApplicationAgent</span>
+  skills <span class="code-class">ToneSkill</span>
+  skills [<span class="code-class">BlogStructureSkill</span>, <span class="code-class">CitationStyleSkill</span>]
+  <span class="code-comment"># or inline string skills</span>
+<span class="code-keyword">end</span></code></pre>
+          </div>
+          <div>
+            <h3>Memory recall — opt-in per agent</h3>
+            <p class="pipeline-section-sublead">
+              Past conversations distilled into a compact block and prepended to the system prompt.
+              Three strategies: <code class="code-accent">:warm</code>, <code class="code-accent">:cold</code>, <code class="code-accent">:hybrid</code>.
+            </p>
+            <pre class="active-ai-codeblock"><code><span class="code-keyword">class</span> <span class="code-class">WritingAgent</span> &lt; <span class="code-class">ApplicationAgent</span>
+  recall_memory strategy: <span class="code-string">:warm</span>, token_budget: 600
+
+  <span class="code-keyword">private</span>
+
+  <span class="code-keyword">def</span> <span class="code-method">memory_recall_context</span>
+    <span class="code-comment"># scope memories to current document</span>
+    { subject: <span class="code-string">@document</span> }
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span>
+
+<span class="code-comment"># Injected context looks like:</span>
+<span class="code-comment"># "Historical context (soft signal):</span>
+<span class="code-comment">#  Decisions: Use short paragraphs; active voice</span>
+<span class="code-comment">#  Open threads: Title still undecided"</span></code></pre>
+          </div>
+        </div>
+
+        <!-- Memory pipeline animation -->
+        <div class="active-ai-diagram" id="memory-diagram">
+          <p class="active-ai-eyebrow active-ai-eyebrow--muted">Conversation ends →</p>
+          <svg class="ai-diagram-svg" viewBox="0 0 680 130" xmlns="http://www.w3.org/2000/svg" aria-label="Memory pipeline: PersistJob, EmbedJob, TierJob, ConsolidateJob">
+            <defs>
+              <marker id="pipe-arr" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0, 7 2.5, 0 5" style="fill: var(--active-ai-flow-stroke);" />
+              </marker>
+            </defs>
+
+            <!-- Stage 1: PersistJob -->
+            <g class="pipeline-stage" id="mem-s1">
+              <rect x="10" y="40" width="140" height="46" rx="0"
+                    style="fill: var(--active-ai-node-bg); stroke: var(--active-ai-flow-stroke); stroke-width: 1.5;"/>
+              <text class="loop-text" x="80" y="60" text-anchor="middle" style="font-size: 12px;">PersistJob</text>
+              <text class="loop-text-muted" x="80" y="75" text-anchor="middle" style="font-size: 9px;">summarize session</text>
+              <text class="loop-text-muted" x="80" y="98" text-anchor="middle">after each turn</text>
+            </g>
+
+            <!-- Connector 1→2 -->
+            <path class="pipeline-path" id="mem-p1" d="M 150 63 L 190 63" marker-end="url(#pipe-arr)"/>
+
+            <!-- Stage 2: EmbedJob -->
+            <g class="pipeline-stage" id="mem-s2">
+              <rect x="190" y="40" width="140" height="46" rx="0"
+                    style="fill: var(--active-ai-node-bg); stroke: var(--active-ai-flow-stroke); stroke-width: 1.5;"/>
+              <text class="loop-text" x="260" y="60" text-anchor="middle" style="font-size: 12px;">EmbedJob</text>
+              <text class="loop-text-muted" x="260" y="75" text-anchor="middle" style="font-size: 9px;">generate vector</text>
+              <text class="loop-text-muted" x="260" y="98" text-anchor="middle">auto-enqueued</text>
+            </g>
+
+            <!-- Connector 2→3 -->
+            <path class="pipeline-path" id="mem-p2" d="M 330 63 L 370 63" marker-end="url(#pipe-arr)"/>
+
+            <!-- Stage 3: TierJob (amber — scheduled) -->
+            <g class="pipeline-stage" id="mem-s3">
+              <rect x="370" y="40" width="140" height="46" rx="0"
+                    style="fill: var(--active-ai-node-tool); stroke: var(--active-ai-node-tool-stroke); stroke-width: 1.5;"/>
+              <text class="loop-text loop-text-tool" x="440" y="60" text-anchor="middle" style="font-size: 12px;">TierJob</text>
+              <text class="loop-text-muted" x="440" y="75" text-anchor="middle" style="font-size: 9px;">warm → cold</text>
+              <text class="loop-text-muted" x="440" y="98" text-anchor="middle">daily scheduled</text>
+            </g>
+
+            <!-- Connector 3→4 -->
+            <path class="pipeline-path" id="mem-p3" d="M 510 63 L 550 63" marker-end="url(#pipe-arr)"/>
+
+            <!-- Stage 4: ConsolidateJob (amber — scheduled) -->
+            <g class="pipeline-stage" id="mem-s4">
+              <rect x="550" y="40" width="122" height="46" rx="0"
+                    style="fill: var(--active-ai-node-tool); stroke: var(--active-ai-node-tool-stroke); stroke-width: 1.5;"/>
+              <text class="loop-text loop-text-tool" x="611" y="57" text-anchor="middle" style="font-size: 11px;">Consolidate</text>
+              <text class="loop-text loop-text-tool" x="611" y="70" text-anchor="middle" style="font-size: 11px;">Job</text>
+              <text class="loop-text-muted" x="611" y="98" text-anchor="middle">weekly scheduled</text>
+            </g>
+
+            <!-- Legend -->
+            <text class="loop-label" x="10" y="120" style="fill: var(--color-text-muted);">Blue = event-driven   Amber = scheduled maintenance</text>
+          </svg>
+          <p class="diagram-caption">Stages light up in sequence on scroll entry. Stages 3–4 run on a configurable schedule.</p>
+        </div>
+
+        <p class="bp-annotation" style="margin-top: 1.25rem;">
+          <strong>Speculative:</strong> <code class="code-accent">ConsolidateJob</code> — relationship detection between memory pairs — is
+          architecturally complete but described in the docs as active development.
+          <code class="code-accent">PersistJob</code> and <code class="code-accent">EmbedJob</code>
+          are further along. Production memory requires a real embedding provider replacing the default zero-vector stub.
+        </p>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 07 — INSTRUMENTATION (OBSERVE)
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="instrumentation" data-node-index="7">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-7"></div>
+        <span class="pipeline-node-label">Observe</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>10+ ActiveSupport::Notifications events, zero configuration</h2>
+        <!-- AI SEO: AP annotation — topic=instrumentation kind=overview (Check 2: "What instrumentation does ActiveAI provide?") -->
+        <p topic="instrumentation" kind="overview">
+          Every agent turn, tool dispatch, workflow step, skill resolution, and orchestrator route fires an event.
+          The flight recorder is always on. Attach subscribers only when you need them.
+        </p>
+
+        <span class="active-ai-eyebrow" style="margin-bottom: 0.75rem;">Subscribe in a Rails initializer</span>
+        <pre class="active-ai-codeblock" style="margin-bottom: 1.5rem;"><code><span class="code-comment"># config/initializers/active_ai_instrumentation.rb</span>
+
+<span class="code-class">ActiveSupport</span>::<span class="code-class">Notifications</span>.subscribe(<span class="code-string">"agent_complete.active_ai"</span>) <span class="code-keyword">do</span> |event|
+  <span class="code-class">AgentLog</span>.create!(
+    agent:         event.payload[:agent_class],
+    model:         event.payload[:model],
+    input_tokens:  event.payload.dig(:usage, :input_tokens),
+    output_tokens: event.payload.dig(:usage, :output_tokens),
+    duration_ms:   event.duration.round
+  )
+<span class="code-keyword">end</span>
+
+<span class="code-comment"># Caller context propagates automatically through nested calls:</span>
+<span class="code-comment"># workflow_step.active_ai  caller_type: :workflow</span>
+<span class="code-comment"># agent_complete.active_ai caller_type: :workflow</span>
+<span class="code-comment"># tool_call.active_ai      caller_type: :agent</span>
+<span class="code-class">ActiveAI</span>::<span class="code-class">Instrumentation</span>.current_caller
+<span class="code-comment"># =&gt; { type: :agent, name: "WritingAgent" }</span></code></pre>
+
+        <span class="active-ai-eyebrow" style="margin-bottom: 0.75rem;">All 10 events</span>
+        <div class="event-table">
+          <div class="event-name">agent_complete.active_ai</div>
+          <div class="event-desc">full agent turn incl. tool iterations</div>
+          <div class="event-name">agent_stream.active_ai</div>
+          <div class="event-desc">raw stream loop timing</div>
+          <div class="event-name">tool_call.active_ai</div>
+          <div class="event-desc">each tool invocation inside the loop</div>
+          <div class="event-name">skill_resolve.active_ai</div>
+          <div class="event-desc">each skill content resolved</div>
+          <div class="event-name">workflow_run.active_ai</div>
+          <div class="event-desc">Workflow.run(input)</div>
+          <div class="event-name">workflow_step.active_ai</div>
+          <div class="event-desc">each step() call within a workflow</div>
+          <div class="event-name">workflow_parallel_step.active_ai</div>
+          <div class="event-desc">entire parallel_step batch</div>
+          <div class="event-name">orchestrator_route.active_ai</div>
+          <div class="event-desc">routing decision + dispatched targets</div>
+          <div class="event-name">orchestrator_dispatch.active_ai</div>
+          <div class="event-desc">each meta-tool invocation</div>
+          <div class="event-name">memory_persist.active_ai</div>
+          <div class="event-desc">PersistJob + EmbedJob completion</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 08 — PROVIDERS
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="providers" data-node-index="8">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-8"></div>
+        <span class="pipeline-node-label">Providers</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>Provider-agnostic framework, custom tool DSL</h2>
+        <p>
+          The framework is provider-agnostic at the routing level. Switching providers is one line in the agent DSL.
+          Whether prompts translate cleanly across models is a separate concern.
+        </p>
+
+        <!-- Three providers: no boxes, just name + description + thin rules -->
+        <div class="provider-row" style="margin-bottom: 1.5rem;">
+          <div class="provider-item">
+            <div class="provider-name">Anthropic</div>
+            <div class="provider-desc">Claude family. Native streaming, tool use. Gem: <code class="code-accent">anthropic</code></div>
+          </div>
+          <div class="provider-item">
+            <div class="provider-name">OpenAI</div>
+            <div class="provider-desc">GPT family. Same streaming contract. Gem: <code class="code-accent">ruby-openai</code></div>
+          </div>
+          <div class="provider-item">
+            <div class="provider-name">xAI</div>
+            <div class="provider-desc">Grok models. OpenAI-compatible API. Gem: <code class="code-accent">ruby-openai</code></div>
+          </div>
+        </div>
+
+        <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Switching is one line</span>
+        <pre class="active-ai-codeblock" style="margin-bottom: 1.5rem;"><code><span class="code-keyword">class</span> <span class="code-class">WritingAgent</span> &lt; <span class="code-class">ApplicationAgent</span>
+  provider <span class="code-string">:anthropic</span>   <span class="code-comment"># → change to :openai or :xai — one line</span>
+  model    <span class="code-string">"claude-sonnet-4-6"</span>
+<span class="code-keyword">end</span>
+
+<span class="code-comment"># Custom provider — implement the adapter interface</span>
+<span class="code-keyword">class</span> <span class="code-class">MyProvider</span> &lt; <span class="code-class">ActiveAI</span>::<span class="code-class">Provider</span>::<span class="code-class">Base</span>
+  <span class="code-keyword">def</span> <span class="code-method">stream</span>(params, &amp;block) = <span class="code-comment"># …</span>
+<span class="code-keyword">end</span>
+<span class="code-class">ActiveAI</span>.register_provider(<span class="code-string">:my_provider</span>, <span class="code-class">MyProvider</span>)</code></pre>
+
+        <span class="active-ai-eyebrow" style="margin-bottom: 0.5rem;">Built-in tools</span>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+          <div class="tool-card" style="flex: 1; min-width: 200px;">
+            <div class="tool-item-name"><code>WebSearch</code></div>
+            <div class="tool-item-desc">Searches the web via configured provider. Requires <code>search_provider</code> in initializer.</div>
+          </div>
+          <div class="tool-card" style="flex: 1; min-width: 200px;">
+            <div class="tool-item-name"><code>WebPageReader</code></div>
+            <div class="tool-item-desc">Fetches and extracts text from a URL. No configuration required.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 09 — GENERATORS (GENERATE)
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="generators" data-node-index="9">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-9"></div>
+        <span class="pipeline-node-label">Generate</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>Rails-native scaffolding for every component</h2>
+        <p>
+          Every piece of the AI layer has a generator. Run <code class="code-accent">rails g active_ai:install</code> once;
+          then scaffold agents, tools, skills, workflows, orchestrators, and prompts as the app grows.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;" id="generators-list">
+          <div>
+            <span class="before-label before-label--muted">Install — run once</span>
+            <pre class="active-ai-codeblock"><code>rails generate active_ai:install
+<span class="code-comment"># → app/ai/agents/application_agent.rb</span>
+<span class="code-comment"># → app/ai/tools/application_tool.rb</span>
+<span class="code-comment"># → app/ai/skills/application_skill.rb</span>
+<span class="code-comment"># → app/ai/workflows/application_workflow.rb</span>
+<span class="code-comment"># → app/ai/orchestrators/application_orchestrator.rb</span>
+<span class="code-comment"># → config/ai.yml</span>
+<span class="code-comment"># → config/initializers/active_ai.rb</span></code></pre>
+          </div>
+          <div>
+            <span class="before-label before-label--muted">Agent + Tool + Skill</span>
+            <pre class="active-ai-codeblock"><code>rails generate active_ai:agent Writing
+<span class="code-comment"># → app/ai/agents/writing_agent.rb</span>
+
+rails generate active_ai:tool PriceCheck
+<span class="code-comment"># → app/ai/tools/price_check_tool.rb</span>
+<span class="code-comment"># → test/ai/tools/price_check_tool_test.rb</span>
+
+rails generate active_ai:skill Tone
+<span class="code-comment"># → app/ai/skills/tone_skill.rb</span>
+<span class="code-comment"># → test/ai/skills/tone_skill_test.rb</span></code></pre>
+          </div>
+          <div>
+            <span class="before-label before-label--muted">Workflow + Orchestrator + Prompt</span>
+            <pre class="active-ai-codeblock"><code>rails generate active_ai:workflow ResearchAndDraft
+<span class="code-comment"># → app/ai/workflows/research_and_draft_workflow.rb</span>
+
+rails generate active_ai:orchestrator Writing
+<span class="code-comment"># → app/ai/orchestrators/writing_orchestrator.rb</span>
+
+rails generate active_ai:prompt agent writing
+<span class="code-comment"># → app/ai/agents/prompts/writing.md.erb</span></code></pre>
+          </div>
+          <div>
+            <span class="before-label before-label--muted">Memory system</span>
+            <pre class="active-ai-codeblock"><code>rails generate active_ai:memory:install
+rails db:migrate
+<span class="code-comment"># → 4 migrations (memories, embeddings, correlations, flags)</span>
+<span class="code-comment"># → 3 memory agents</span>
+<span class="code-comment"># → 4 background jobs</span>
+
+<span class="code-comment"># With pgvector for semantic recall:</span>
+rails generate active_ai:memory:install --vector=pgvector</code></pre>
+          </div>
+        </div>
+
+        <p class="bp-annotation" style="margin-top: 1.25rem;">
+          Each generator namespace is declared explicitly with <code>namespace "active_ai:agent"</code> to work around
+          Rails converting <code>ActiveAI</code> → <code>active_a_i</code> in path lookups. This is handled internally —
+          you run the generators as documented.
+        </p>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 10 — ORIGIN
+         ══════════════════════════════════════════════════════════════ -->
+    <section class="pipeline-node" id="origin" data-node-index="10">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-10"></div>
+        <span class="pipeline-node-label">Origin</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2>Extracted from real production use, not designed in the abstract</h2>
+
+        <!-- AI SEO: attribution — "Built by Robert Evans" with link to robertrevans.com in origin section body text; more prominent placement than footer alone; topic=authorship kind=key-point (Check 5, entity clarity in body) -->
+        <p topic="authorship" kind="key-point" style="margin-bottom: 1rem;">
+          ActiveAI is built by <a href="https://robertrevans.com" rel="author">Robert Evans</a> and extracted from <strong>writer-v3</strong>, a personal writing application built around a human-first philosophy: the writer owns the work; AI assists with editing, suggests improvements, and explains its reasoning — but never drives.
+        </p>
+        <p style="margin-bottom: 1rem;">
+          The writer-v3 premise is that AI is most useful when it makes a writer <em>better</em>,
+          not when it writes <em>for</em> them. That means the AI's role is to surface what isn't
+          working, propose specific changes, and explain why — so the writer learns from every
+          session rather than just accepting output.
+        </p>
+        <p style="max-width: 580px;">
+          The patterns here — streaming responses, skills as behavioral constraints, memory that
+          accumulates understanding over sessions, orchestrators that route to the right specialist
+          — all emerged from real use in a writing context and were generalized as they proved their value.
+          These are not theoretical patterns. They are the answer to "what does it actually take
+          to run LLM calls in a Rails app over weeks of use?"
+        </p>
+
+        <blockquote class="blockquote-wrapper">
+          <p class="blockquote-text">
+            "The writer owns the work; AI assists with editing, suggests improvements,
+            and explains its reasoning — but never drives."
+          </p>
+          <cite class="blockquote-cite">
+            writer-v3 design premise
+          </cite>
+        </blockquote>
+      </div>
+    </section>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         NODE 11 — GET STARTED (START)
+         ══════════════════════════════════════════════════════════════ -->
+    <!-- AI SEO: AP annotation — topic=getting-started kind=instruction on the get-started section (Check 2: "How do I install / get ActiveAI?") -->
+    <section class="pipeline-node" id="get-started" data-node-index="11" topic="getting-started" kind="instruction">
+      <div class="pipeline-node-left">
+        <div class="pipeline-node-dot" id="dot-11"></div>
+        <span class="pipeline-node-label">Start</span>
+      </div>
+      <div class="pipeline-node-right">
+        <h2 style="margin-bottom: 1.5rem;">Three steps to your first agent</h2>
+
+        <div style="margin-bottom: 1.25rem;">
+          <span class="active-ai-eyebrow" style="margin-bottom: 0.375rem;">1. Add to Gemfile</span>
+          <div class="active-ai-install">
+            gem <span class="code-string">"active_ai"</span>, github: <span class="code-string">"revans/active_ai"</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <span class="active-ai-eyebrow" style="margin-bottom: 0.375rem;">2. Install</span>
+          <div class="active-ai-install">
+            <span class="code-prompt">$ </span>bundle install<br>
+            <span class="code-prompt">$ </span>rails generate active_ai:install
+          </div>
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+          <span class="active-ai-eyebrow" style="margin-bottom: 0.375rem;">3. Generate your first agent</span>
+          <div class="active-ai-install">
+            <span class="code-prompt">$ </span>rails generate active_ai:agent Writing
+          </div>
+        </div>
+
+        <div class="bp-flex bp-gap-3" style="flex-wrap: wrap; align-items: center; margin-bottom: 2rem;">
+          <a href="https://github.com/revans/active_ai" class="bp-btn bp-btn-primary bp-btn-lg" target="_blank" rel="noopener">View on GitHub ↗</a>
+          <a href="https://github.com/revans/active_ai/tree/main/docs" class="bp-btn bp-btn-outline bp-btn-lg" target="_blank" rel="noopener">Read the docs ↗</a>
+        </div>
+
+        <div class="bp-alert bp-alert-warning">
+          <div class="bp-alert-icon">⚠</div>
+          <div class="bp-alert-content">
+            <div class="bp-alert-title">Active development</div>
+            APIs, DSLs, generator output, and memory pipeline internals are subject to breaking changes
+            between versions. Production deployment is at your own risk.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pipeline terminal — the wire ends here -->
+    <div class="pipeline-terminal" aria-hidden="true">
+      <div class="pipeline-terminal-left">
+        <div id="pipeline-terminal-dot" class="pipeline-terminal-end" style="opacity: 0;"></div>
+      </div>
+    </div>
+
+  </div><!-- /pipeline-page -->
+
+
+  <!-- FOOTER -->
+  <footer class="bp-footer">
+    <div class="bp-container">
+      <div class="bp-footer-grid">
+        <div>
+          <div class="bp-footer-brand-name">ActiveAI</div>
+          <p class="bp-footer-brand-desc">A Rails-native AI agent library. Extracted from writer-v3. MIT License.</p>
+        </div>
+        <div>
+          <div class="bp-footer-col-title">Source</div>
+          <ul class="bp-footer-links">
+            <li><a href="https://github.com/revans/active_ai" class="bp-footer-link" target="_blank" rel="noopener">GitHub</a></li>
+            <li><a href="https://github.com/revans/active_ai/tree/main/docs" class="bp-footer-link" target="_blank" rel="noopener">Documentation</a></li>
+            <li><a href="https://github.com/revans/active_ai/blob/main/README.md" class="bp-footer-link" target="_blank" rel="noopener">README</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="bp-footer-col-title">Sections</div>
+          <ul class="bp-footer-links">
+            <li><a href="#problem" class="bp-footer-link">The Problem</a></li>
+            <li><a href="#analogy" class="bp-footer-link">Rails Analogy</a></li>
+            <li><a href="#agentic-loop" class="bp-footer-link">Agentic Loop</a></li>
+            <li><a href="#workflows" class="bp-footer-link">Workflows</a></li>
+            <li><a href="#instrumentation" class="bp-footer-link">Instrumentation</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="bp-footer-bottom">
+        <span class="bp-footer-copy">© 2026 ActiveAI — active development</span>
+        <!-- AI SEO: attribution — visible "Built by Robert Evans" with link to robertrevans.com (Check 5 signal 1: required visible page body attribution; AP annotation topic=authorship kind=key-point) -->
+        <span topic="authorship" kind="key-point" class="bp-footer-copy">Built by <a href="https://robertrevans.com" rel="author" style="color: inherit; text-decoration: underline;">Robert Evans</a></span>
+        <time datetime="2026-06-28" class="active-ai-footer-time">Published June 2026</time>
+        <div class="bp-flex bp-gap-4">
+          <a href="https://robertrevans.com/tools/the-point/" class="bp-footer-copy active-ai-footer-muted" rel="noopener">Built with The Point CSS</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ANIMATIONS — Anime.js v4
+       ══════════════════════════════════════════════════════════════ -->
+  <script src="/javascript/anime.min.js?v=3"></script>
+  <script>
+  (function() {
+
+    // ─────────────────────────────────────────────────────────────
+    // Guard: respect prefers-reduced-motion
+    // ─────────────────────────────────────────────────────────────
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reducedMotion) {
+      // Show all memory pipeline stages at full opacity
+      document.querySelectorAll('.pipeline-stage, .pipeline-path').forEach(function(el) {
+        el.style.opacity = '1';
+      });
+      // Show terminal dot
+      var termDot = document.getElementById('pipeline-terminal-dot');
+      if (termDot) termDot.style.opacity = '1';
+      return;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pattern 6 — Typewriter for hero install command
+    // ─────────────────────────────────────────────────────────────
+    var installEl = document.getElementById('hero-install-cmd');
+    var cursor    = document.getElementById('tw-cursor');
+
+    if (installEl && cursor) {
+      var text = 'rails generate active_ai:install';
+      installEl.textContent = '';
+      var i = 0;
+      setTimeout(function() {
+        var interval = setInterval(function() {
+          installEl.textContent += text[i];
+          i++;
+          if (i >= text.length) {
+            clearInterval(interval);
+            setTimeout(function() { cursor.style.display = 'none'; }, 1800);
+          }
+        }, 38);
+      }, 700);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pipeline wire — build SVG segments from dot positions
+    // ─────────────────────────────────────────────────────────────
+    function initPipelineWire() {
+      var pipelinePage = document.querySelector('.pipeline-page');
+      var wireSvg      = document.getElementById('pipeline-wire-svg');
+      var nodes        = document.querySelectorAll('.pipeline-node');
+
+      if (!pipelinePage || !wireSvg || !nodes.length) return;
+
+      // Get offset of el relative to container (scroll-independent)
+      function relOffset(el, container) {
+        var top = 0, left = 0, cur = el;
+        while (cur && cur !== container) {
+          top  += cur.offsetTop;
+          left += cur.offsetLeft;
+          cur   = cur.offsetParent;
+        }
+        return { top: top, left: left };
+      }
+
+      // Set SVG to cover the full pipeline-page
+      var pageW = pipelinePage.offsetWidth;
+      var pageH = pipelinePage.offsetHeight;
+      wireSvg.setAttribute('width', pageW);
+      wireSvg.setAttribute('height', pageH);
+
+      // Collect dot center positions
+      var dots = [];
+      nodes.forEach(function(node) {
+        var dot = node.querySelector('.pipeline-node-dot');
+        if (dot) {
+          var off = relOffset(dot, pipelinePage);
+          dots.push({
+            x: off.left + dot.offsetWidth  / 2,
+            y: off.top  + dot.offsetHeight / 2
+          });
+        }
+      });
+
+      // Also capture the terminal dot
+      var termDot = document.getElementById('pipeline-terminal-dot');
+      if (termDot) {
+        var termOff = relOffset(termDot, pipelinePage);
+        dots.push({
+          x: termOff.left + termDot.offsetWidth  / 2,
+          y: termOff.top  + termDot.offsetHeight / 2
+        });
+      }
+
+      // Create SVG line segments between consecutive dots
+      var segments = [];
+      for (var i = 0; i < dots.length - 1; i++) {
+        var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', dots[i].x);
+        line.setAttribute('y1', dots[i].y);
+        line.setAttribute('x2', dots[i + 1].x);
+        line.setAttribute('y2', dots[i + 1].y);
+        line.setAttribute('class', 'pipeline-wire-segment');
+
+        // Vertical line length for dasharray
+        var dy  = dots[i + 1].y - dots[i].y;
+        var dx  = dots[i + 1].x - dots[i].x;
+        var len = Math.sqrt(dx * dx + dy * dy);
+        line.setAttribute('stroke-dasharray', len);
+        line.setAttribute('stroke-dashoffset', len);
+
+        wireSvg.appendChild(line);
+        segments.push(line);
+      }
+
+      // IntersectionObserver: draw segment on node entry
+      var wireObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+
+          var idx = parseInt(entry.target.dataset.nodeIndex, 10);
+
+          // Draw segment leading to next node
+          if (segments[idx]) {
+            anime({
+              targets:          segments[idx],
+              strokeDashoffset: 0,
+              duration:         700,
+              easing:           'easeInOutSine'
+            });
+          }
+
+          // Pulse the dot with a CSS class (avoids mixing anime.js on same element)
+          var dot = entry.target.querySelector('.pipeline-node-dot');
+          if (dot) {
+            dot.classList.add('pulse');
+            dot.addEventListener('animationend', function() {
+              dot.classList.remove('pulse');
+            }, { once: true });
+          }
+
+          wireObserver.unobserve(entry.target);
+        });
+      }, { threshold: 0.1 });
+
+      nodes.forEach(function(node) { wireObserver.observe(node); });
+
+      // Reveal terminal dot after last segment draws
+      if (termDot && segments.length) {
+        var lastSeg = segments[segments.length - 1];
+        // Terminal dot becomes visible after last wire segment fires
+        var termObserver = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (!entry.isIntersecting) return;
+            anime({
+              targets:  lastSeg,
+              strokeDashoffset: 0,
+              duration: 700,
+              easing:   'easeInOutSine',
+              complete: function() {
+                anime({
+                  targets: termDot,
+                  opacity: [0, 1],
+                  scale:   [0.5, 1],
+                  duration: 400,
+                  easing:   'easeOutBack'
+                });
+              }
+            });
+            termObserver.unobserve(entry.target);
+          });
+        }, { threshold: 0.5 });
+
+        // Observe the terminal container
+        var termContainer = document.querySelector('.pipeline-terminal');
+        if (termContainer) termObserver.observe(termContainer);
+      }
+    }
+
+    // Run after full layout (load, not DOMContentLoaded — images/fonts affect layout)
+    if (document.readyState === 'complete') {
+      initPipelineWire();
+    } else {
+      window.addEventListener('load', initPipelineWire);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pattern 2 — Architecture diagram (Section 4): vertical chain
+    // Nodes fade in, arrows draw in sequence
+    // ─────────────────────────────────────────────────────────────
+    var archDiagram = document.getElementById('arch-diagram');
+
+    if (archDiagram) {
+      var archNodes = archDiagram.querySelectorAll('[id^="arch-n"]');
+      var archPaths = archDiagram.querySelectorAll('[id^="arch-p"]');
+
+      // Initialize: nodes invisible, paths with dashoffset
+      archNodes.forEach(function(n) { n.style.opacity = '0'; });
+      archPaths.forEach(function(p) {
+        var len = p.getTotalLength ? p.getTotalLength() : 20;
+        p.style.strokeDasharray  = len;
+        p.style.strokeDashoffset = len;
+        p.style.opacity = '0';
+      });
+
+      var archObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+
+          // Stagger nodes in with opacity
+          anime({
+            targets:   Array.from(archNodes),
+            opacity:   [0, 1],
+            delay:     anime.stagger(120),
+            duration:  350,
+            easing:    'easeOutQuart'
+          });
+
+          // Draw paths after nodes appear
+          archPaths.forEach(function(p) { p.style.opacity = '1'; });
+          anime({
+            targets: Array.from(archPaths),
+            strokeDashoffset: function(el) {
+              return [el.getTotalLength ? el.getTotalLength() : 20, 0];
+            },
+            duration: 400,
+            delay:    anime.stagger(130, { start: 180 }),
+            easing:   'easeInOutSine'
+          });
+
+          archObserver.unobserve(entry.target);
+        });
+      }, { threshold: 0.2 });
+
+      archObserver.observe(archDiagram);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pattern 2 — Agentic Loop (Section 5): hexagonal cycle
+    // Nodes appear, then arrows draw in cycle order
+    // ─────────────────────────────────────────────────────────────
+    var loopDiagram = document.getElementById('loop-diagram');
+
+    if (loopDiagram) {
+      var loopNodes = loopDiagram.querySelectorAll('[id^="ln-"]');
+      var loopPaths = loopDiagram.querySelectorAll('[id^="lp-"]');
+
+      // Initialize
+      loopNodes.forEach(function(n) { n.style.opacity = '0'; });
+      loopPaths.forEach(function(p) {
+        var len = p.getTotalLength ? p.getTotalLength() : 60;
+        p.style.strokeDasharray  = len;
+        p.style.strokeDashoffset = len;
+        p.style.opacity = '0';
+      });
+
+      var loopObs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+
+          // Phase 1: nodes appear
+          anime({
+            targets:  Array.from(loopNodes),
+            opacity:  [0, 1],
+            delay:    anime.stagger(90),
+            duration: 300,
+            easing:   'easeOutQuart'
+          });
+
+          // Phase 2: arrows draw in cycle order
+          loopPaths.forEach(function(p) { p.style.opacity = '1'; });
+          anime({
+            targets: Array.from(loopPaths),
+            strokeDashoffset: function(el) {
+              return [el.getTotalLength ? el.getTotalLength() : 60, 0];
+            },
+            duration: 600,
+            delay:    anime.stagger(200, { start: 350 }),
+            easing:   'easeInOutSine'
+          });
+
+          loopObs.unobserve(entry.target);
+        });
+      }, { threshold: 0.2 });
+
+      loopObs.observe(loopDiagram);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pattern 2 — Workflow comparison (Section 6)
+    // Left column reveals, then right column
+    // ─────────────────────────────────────────────────────────────
+    var wfDiagram = document.getElementById('workflow-diagram');
+
+    if (wfDiagram) {
+      var wfNodes   = ['#wf-s1','#wf-s2','#wf-s3'].map(function(s) { return wfDiagram.querySelector(s); }).filter(Boolean);
+      var wfPaths   = ['#wf-p1','#wf-p2','#wf-p3'].map(function(s) { return wfDiagram.querySelector(s); }).filter(Boolean);
+      var orchNodes = ['#orch-llm','#orch-a','#orch-b','#orch-c'].map(function(s) { return wfDiagram.querySelector(s); }).filter(Boolean);
+      var orchPaths = ['#orch-p1','#orch-p2','#orch-p3'].map(function(s) { return wfDiagram.querySelector(s); }).filter(Boolean);
+
+      // Initialize
+      wfNodes.forEach(function(n) { n.style.opacity = '0'; });
+      orchNodes.forEach(function(n) { n.style.opacity = '0'; });
+      wfPaths.concat(orchPaths).forEach(function(p) {
+        var len = p.getTotalLength ? p.getTotalLength() : 60;
+        p.style.strokeDasharray  = len;
+        p.style.strokeDashoffset = len;
+        p.style.opacity = '0';
+      });
+
+      var wfObs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+
+          // Workflow column first
+          anime({ targets: wfNodes,  opacity: [0,1], delay: anime.stagger(130), duration: 350, easing: 'easeOutQuart' });
+          wfPaths.forEach(function(p) { p.style.opacity = '1'; });
+          anime({
+            targets: wfPaths,
+            strokeDashoffset: function(el) { return [el.getTotalLength ? el.getTotalLength() : 60, 0]; },
+            duration: 380, delay: anime.stagger(130, { start: 200 }), easing: 'easeInOutSine'
+          });
+
+          // Orchestrator column second
+          anime({ targets: orchNodes, opacity: [0,1], delay: anime.stagger(130, { start: 650 }), duration: 350, easing: 'easeOutQuart' });
+          orchPaths.forEach(function(p) { p.style.opacity = '1'; });
+          anime({
+            targets: orchPaths,
+            strokeDashoffset: function(el) { return [el.getTotalLength ? el.getTotalLength() : 60, 0]; },
+            duration: 380, delay: anime.stagger(120, { start: 900 }), easing: 'easeInOutSine'
+          });
+
+          wfObs.unobserve(entry.target);
+        });
+      }, { threshold: 0.15 });
+
+      wfObs.observe(wfDiagram);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pattern 2 — Memory pipeline (Section 7): sequential stage reveal
+    // ─────────────────────────────────────────────────────────────
+    var memDiagram = document.getElementById('memory-diagram');
+
+    if (memDiagram) {
+      var memStages = memDiagram.querySelectorAll('.pipeline-stage');
+      var memPaths  = memDiagram.querySelectorAll('.pipeline-path');
+
+      // Initialize: stages dimmed, paths hidden
+      memStages.forEach(function(s) { s.style.opacity = '0.25'; });
+      memPaths.forEach(function(p) {
+        p.style.opacity = '0.15';
+        var len = p.getTotalLength ? p.getTotalLength() : 40;
+        p.style.strokeDasharray  = len;
+        p.style.strokeDashoffset = len;
+      });
+
+      var memObs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+
+          var stepDuration = 520;
+
+          memStages.forEach(function(stage, i) {
+            setTimeout(function() {
+              // Dim all
+              memStages.forEach(function(s) {
+                if (s !== stage) anime({ targets: s, opacity: 0.25, duration: 200, easing: 'easeOutQuart' });
+              });
+              // Light up this stage
+              anime({ targets: stage, opacity: [0.25, 1], duration: 350, easing: 'easeOutQuart' });
+
+              // Draw connector after this stage
+              if (memPaths[i]) {
+                anime({
+                  targets:          memPaths[i],
+                  strokeDashoffset: 0,
+                  opacity:          [0.15, 1],
+                  duration:         350,
+                  easing:           'easeInOutSine'
+                });
+              }
+
+              // On last stage, settle all at 0.85
+              if (i === memStages.length - 1) {
+                setTimeout(function() {
+                  memStages.forEach(function(s) {
+                    anime({ targets: s, opacity: 0.85, duration: 400, easing: 'easeOutQuart' });
+                  });
+                }, 400);
+              }
+            }, i * stepDuration);
+          });
+
+          memObs.unobserve(entry.target);
+        });
+      }, { threshold: 0.2 });
+
+      memObs.observe(memDiagram);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Pattern 1 — Generator commands: staggered reveal on scroll
+    // ─────────────────────────────────────────────────────────────
+    var genList = document.getElementById('generators-list');
+
+    if (genList) {
+      var genBlocks = Array.from(genList.children);
+      genBlocks.forEach(function(b) { b.style.opacity = '0'; b.style.transform = 'translateY(12px)'; });
+
+      var genObs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+          anime({
+            targets:    genBlocks,
+            opacity:    [0, 1],
+            translateY: [12, 0],
+            delay:      anime.stagger(100),
+            duration:   420,
+            easing:     'easeOutQuart'
+          });
+          genObs.unobserve(entry.target);
+        });
+      }, { threshold: 0.1 });
+
+      genObs.observe(genList);
+    }
+
+  })();
+  </script>
+
+</body>
+</html>
