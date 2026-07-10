@@ -19,7 +19,17 @@ module ActiveAI
       # close: false is only honored on the success path. Any error always
       # writes [DONE] and closes — there is no next turn to hand the open
       # response to once a turn has failed.
-      def stream_agent(agent, close: true, &after_stream)
+      #
+      # on_error is after_stream's counterpart for the failure path: called
+      # with the raised exception once the SSE error event has been written,
+      # so a caller can persist a record of the failed attempt (cost so far,
+      # what failed, when) the same way after_stream lets it persist a
+      # successful one. Optional and nil by default — existing callers that
+      # don't pass it see no change in behavior. A raise inside on_error is
+      # caught and logged here rather than left to propagate: a bug in the
+      # caller's own bookkeeping must not prevent the client from getting its
+      # error event and terminal [DONE].
+      def stream_agent(agent, close: true, on_error: nil, &after_stream)
         response.headers["Content-Type"]      = "text/event-stream"
         response.headers["Cache-Control"]     = "no-cache"
         response.headers["X-Accel-Buffering"] = "no"
@@ -53,6 +63,11 @@ module ActiveAI
         @stream_errored = true
         Rails.logger.error("stream_conversation failed: #{stream_error.class} #{stream_error.message}")
         response.stream.write("data: #{JSON.generate(error: stream_error_message(stream_error))}\n\n") rescue nil
+        begin
+          on_error&.call(stream_error)
+        rescue => callback_error
+          Rails.logger.error("stream_agent on_error callback failed: #{callback_error.class} #{callback_error.message}")
+        end
         full_response
       ensure
         # Must run even if after_stream raised — client hangs otherwise.
