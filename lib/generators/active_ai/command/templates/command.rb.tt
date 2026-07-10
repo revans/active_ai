@@ -1,0 +1,16 @@
+class <%= class_name %>Command < ApplicationCommand
+  command_name "<%= file_name %>"
+  description "TODO: describe what <%= class_name %>Command does"
+
+  # Exactly one of phrase: (exact match, no argument) or prefix: (leading
+  # match, captures trailing text as the `argument:` call kwarg):
+  trigger phrase: "/<%= file_name.tr("_", " ") %>"
+  # trigger prefix: "/<%= file_name.tr("_", " ") %>"
+
+  # :stream (SSE) or :json (single response.json() await):
+  response_type :json
+
+  def call(argument: nil)
+    raise NotImplementedError, "#{self.class}#call is not implemented"
+  end
+end
