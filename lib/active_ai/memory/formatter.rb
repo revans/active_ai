@@ -43,7 +43,7 @@ module ActiveAI
       def self.format_memory(memory)
         parts = []
         s = memory.summary
-        s = JSON.parse(s) if s.is_a?(String)
+        s = (JSON.parse(s) rescue nil) if s.is_a?(String)
         return "" unless s.is_a?(Hash)
 
         parts << "Decisions: #{s['decisions'].map { |d| d['description'] }.join('; ')}" if s['decisions'].is_a?(Array) && s['decisions'].any?

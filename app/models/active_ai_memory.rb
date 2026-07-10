@@ -9,6 +9,11 @@
 class ActiveAIMemory < ApplicationRecord
   VALID_TIERS = %w[warm cold].freeze
 
+  # SQLite has no jsonb; this column is `text`. Without this, assigning a Hash
+  # stores Ruby's Hash#to_s (single-quoted, `=>` syntax) instead of JSON, and
+  # Memory::Formatter's `JSON.parse` on read blows up on the very next recall.
+  serialize :summary, coder: JSON
+
   has_many :active_ai_memory_embeddings, foreign_key: :memory_id, dependent: :destroy
   has_many :active_ai_memory_flags,      foreign_key: :memory_id, dependent: :destroy
 

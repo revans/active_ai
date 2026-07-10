@@ -1,3 +1,10 @@
+# Without this, Zeitwerk's default inflector camelizes app/models/active_ai_memory.rb
+# to "ActiveAiMemory" (lowercase i), not "ActiveAIMemory" — the same underscore/camelize
+# mismatch documented in this gem's CLAUDE.md for generator namespacing. Must run before
+# any autoload lookup of the memory models, so it lives at file scope, not inside an
+# initializer block.
+ActiveSupport::Inflector.inflections(:en) { |inflect| inflect.acronym "AI" }
+
 module ActiveAI
   class Engine < Rails::Engine
     initializer "active_ai.configuration" do
