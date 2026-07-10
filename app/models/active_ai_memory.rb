@@ -9,10 +9,16 @@
 class ActiveAIMemory < ApplicationRecord
   VALID_TIERS = %w[warm cold].freeze
 
-  # SQLite has no jsonb; this column is `text`. Without this, assigning a Hash
-  # stores Ruby's Hash#to_s (single-quoted, `=>` syntax) instead of JSON, and
-  # Memory::Formatter's `JSON.parse` on read blows up on the very next recall.
-  serialize :summary, coder: JSON
+  # SQLite has no jsonb; there this column is `text`, so without an explicit
+  # serialize, assigning a Hash stores Ruby's Hash#to_s (single-quoted, `=>`
+  # syntax) instead of JSON, and Memory::Formatter's `JSON.parse` on read
+  # blows up on the very next recall. Postgres' native jsonb column already
+  # round-trips a Hash on its own — declaring `serialize` on top of that is
+  # what Rails now raises ColumnNotSerializableError for, rather than quietly
+  # double-handling it. Host apps that migrate this column to jsonb (see
+  # ChangeSummaryToJsonb) need `serialize` to switch off accordingly, so this
+  # checks the actual column type instead of assuming SQLite == text.
+  serialize :summary, coder: JSON if columns_hash["summary"].sql_type.casecmp?("text")
 
   has_many :active_ai_memory_embeddings, foreign_key: :memory_id, dependent: :destroy
   has_many :active_ai_memory_flags,      foreign_key: :memory_id, dependent: :destroy
