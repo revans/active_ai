@@ -121,3 +121,7 @@ end
 - `gem "anthropic"` — required for Anthropic provider
 - `gem "ruby-openai"` — required for OpenAI and xAI providers
 - `gem "neighbor"` — required for pgvector memory (installed by `active_ai:memory:install --vector=pgvector`)
+
+Model discovery supports account-specific live catalogs for Anthropic, OpenAI and xAI,
+including credential-isolated caching and explicit refresh. See
+[account-specific model discovery](docs/configuration.md#account-specific-model-discovery).

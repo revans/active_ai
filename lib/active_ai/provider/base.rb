@@ -1,3 +1,5 @@
+require "digest"
+
 module ActiveAI
   module Provider
     # Abstract provider base class. Subclasses wrap provider-specific gems.
@@ -8,16 +10,30 @@ module ActiveAI
         []
       end
 
-      # Returns the live model list, memoized in Rails.cache for 24 hours.
-      # Falls back to model_defaults when the API call fails or no key is configured.
-      # Same lifecycle as view templates: stale on deploy, fresh on next cache miss.
-      def self.models
-        return model_defaults unless defined?(Rails)
-        Rails.cache.fetch("active_ai/models/#{provider_name}", expires_in: 24.hours) do
-          key = ActiveAI.config.api_key_for(provider_name)
-          (key.present? && fetch_models(api_key: key)) || model_defaults
+      # Account-specific catalog. Explicit keys never fall back to shared credentials.
+      # Set fallback: false to distinguish discovery failure (nil) from a live list.
+      def self.models(api_key: ActiveAI.config.api_key_for(provider_name), refresh: false, fallback: true)
+        return fallback ? model_defaults : nil if api_key.to_s.empty?
+
+        catalog = if defined?(Rails) && Rails.respond_to?(:cache) && Rails.cache
+          cache_key = "active_ai/models/v2/#{provider_name}/#{Digest::SHA256.hexdigest(api_key)}"
+          Rails.cache.fetch(cache_key, expires_in: 24.hours, force: refresh, skip_nil: true) do
+            fetch_models(api_key: api_key)
+          end
+        else
+          fetch_models(api_key: api_key)
         end
+        catalog || (fallback ? model_defaults : nil)
       end
+
+      # Reject malformed responses instead of offering a partial or invalid catalog.
+      def self.model_ids(data)
+        return nil unless data.is_a?(Array)
+        ids = data.map { |item| item.is_a?(Hash) ? item["id"] : nil }
+        return nil unless ids.all? { |id| id.is_a?(String) && id.length.between?(1, 256) && id.match?(/\A[a-zA-Z0-9][a-zA-Z0-9._:\/-]*\z/) }
+        ids.uniq.sort
+      end
+      private_class_method :model_ids
 
       # Subclasses override to hit the provider's /models endpoint.
       # Returns an array of model ID strings, or nil on failure.

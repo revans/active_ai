@@ -16,22 +16,35 @@ module ActiveAI
       end
 
       def self.fetch_models(api_key:)
-        uri  = URI("https://api.anthropic.com/v1/models")
-        http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl      = true
-        http.open_timeout = 5
-        http.read_timeout = 10
-
-        request = Net::HTTP::Get.new(uri)
-        request["x-api-key"]         = api_key
-        request["anthropic-version"] = "2023-06-01"
-
-        response = http.request(request)
-        return nil unless response.is_a?(Net::HTTPSuccess)
-
-        JSON.parse(response.body)["data"].map { |model_data| model_data["id"] }.sort
-      rescue => error
-        Rails.logger.error("ActiveAI::Provider::Anthropic.fetch_models failed: #{error.message}")
+        uri = URI("https://api.anthropic.com/v1/models")
+        ids = []
+        cursors = []
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 20
+        100.times do
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          return nil if remaining <= 0
+          uri.query = URI.encode_www_form({ limit: 1000 }.merge(cursors.empty? ? {} : { after_id: cursors.last }))
+          http = Net::HTTP.new(uri.host, uri.port)
+          http.use_ssl = true
+          http.open_timeout = [5, remaining].min
+          http.read_timeout = [10, remaining].min
+          request = Net::HTTP::Get.new(uri)
+          request["x-api-key"] = api_key
+          request["anthropic-version"] = "2023-06-01"
+          response = http.request(request)
+          return nil unless response.is_a?(Net::HTTPSuccess)
+          page = JSON.parse(response.body)
+          page_ids = model_ids(page.fetch("data"))
+          return nil unless page_ids
+          ids.concat(page_ids)
+          return ids.uniq.sort unless page["has_more"] == true
+          cursor = page["last_id"]
+          return nil unless cursor.is_a?(String) && page_ids.include?(cursor) && !cursors.include?(cursor)
+          cursors << cursor
+        end
+        nil
+      rescue StandardError
+        # Provider responses and exception messages can contain credentials.
         nil
       end
 

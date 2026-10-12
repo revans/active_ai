@@ -4,7 +4,6 @@ module ActiveAI
   module Provider
     class XAI < OpenAI
       MODEL_DEFAULTS      = %w[grok-3 grok-3-mini].freeze
-      CHAT_MODEL_PREFIXES = %w[grok-].freeze
 
       def self.model_defaults
         MODEL_DEFAULTS
@@ -13,8 +12,7 @@ module ActiveAI
       def self.fetch_models(api_key:)
         fetch_openai_compatible_models(
           uri:      URI("https://api.x.ai/v1/models"),
-          api_key:  api_key,
-          prefixes: CHAT_MODEL_PREFIXES
+          api_key:  api_key
         )
       end
 

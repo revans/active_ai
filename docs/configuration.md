@@ -123,3 +123,30 @@ When resolving which model to use for a given agent call, ActiveAI checks in thi
 2. Class declaration: `model "claude-sonnet-4-6"` on the agent class
 3. `provider_model_defaults` on `ApplicationAgent` (maps provider → model)
 4. `config/ai.yml` default model for the current environment
+
+## Account-specific model discovery
+
+```ruby
+provider = ActiveAI.provider_class_for("anthropic")
+provider.models(api_key: organization_api_key, fallback: false)
+provider.models(api_key: organization_api_key, refresh: true, fallback: false)
+```
+
+`models` returns sorted, unique model IDs reported by the provider. Anthropic follows
+cursor pagination; OpenAI and xAI use their complete `/v1/models` catalogs without
+fixed model-family filters. Catalog inclusion does not guarantee compatibility with
+chat completions, tool use, or a particular request; catalogs can include models for
+other modalities. The provider still enforces access and capabilities at inference.
+
+Rails caches successful catalogs for 24 hours by provider and a SHA-256 credential
+fingerprint. Keys are never stored in cache names. Rotating a key selects a new
+cache entry. `refresh: true` bypasses a cached catalog. Failures are not cached.
+Outside Rails, discovery works without caching. With no explicit key, discovery
+uses the configured credential resolver. An explicitly blank key never falls back
+to shared credentials.
+
+By default, an unavailable catalog returns `model_defaults` for compatibility.
+Use `fallback: false` to receive `nil` on failure (including invalid credentials,
+timeout, malformed data or incomplete pagination), so a UI can distinguish a live
+catalog from its own configured default. A successful empty catalog returns `[]`.
+Discovery never logs response bodies or exception messages.

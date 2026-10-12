@@ -10,8 +10,6 @@ module ActiveAI
   module Provider
     class OpenAI < Base
       MODEL_DEFAULTS       = %w[gpt-4.1 gpt-4.1-mini gpt-4.1-nano gpt-4o gpt-4o-mini o4-mini o3-mini o3].freeze
-      CHAT_MODEL_PREFIXES  = %w[gpt-4 gpt-4o gpt-4.1 o1 o3 o4].freeze
-      CHAT_MODEL_EXCLUSIONS = %w[-transcribe -tts -search-preview -moderation gpt-image].freeze
 
       def self.model_defaults
         MODEL_DEFAULTS
@@ -20,12 +18,11 @@ module ActiveAI
       def self.fetch_models(api_key:)
         fetch_openai_compatible_models(
           uri:     URI("https://api.openai.com/v1/models"),
-          api_key: api_key,
-          prefixes: CHAT_MODEL_PREFIXES
+          api_key: api_key
         )
       end
 
-      def self.fetch_openai_compatible_models(uri:, api_key:, prefixes:)
+      def self.fetch_openai_compatible_models(uri:, api_key:)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl      = true
         http.open_timeout = 5
@@ -37,13 +34,9 @@ module ActiveAI
         response = http.request(request)
         return nil unless response.is_a?(Net::HTTPSuccess)
 
-        JSON.parse(response.body)["data"]
-          .map    { |model_data| model_data["id"] }
-          .select { |id| prefixes.any? { |prefix| id.start_with?(prefix) } }
-          .reject { |id| CHAT_MODEL_EXCLUSIONS.any? { |exclusion| id.include?(exclusion) } }
-          .sort
-      rescue => fetch_error
-        Rails.logger.error("#{self}.fetch_models failed: #{fetch_error.message}")
+        model_ids(JSON.parse(response.body).fetch("data"))
+      rescue StandardError
+        # Never log provider bodies or exception messages containing credentials.
         nil
       end
 
