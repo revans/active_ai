@@ -17,6 +17,19 @@ class ActiveAIMemoryTest < ActiveSupport::TestCase
     assert_equal({ "decisions" => [{ "description" => "x" }] }, reloaded.summary)
   end
 
+  # Production eager loads every class at boot. A host app that has not
+  # installed the memory tables (it uses agents and tools, not memory) must
+  # still boot: the class body may not read a table that is not there.
+  test "text-column check is false, not an error, when the table does not exist" do
+    absent = Class.new(ActiveAIMemory) { self.table_name = "active_ai_memories_not_installed" }
+
+    assert_equal false, absent.summary_stored_as_text?
+  end
+
+  test "text-column check is true for the SQLite text column" do
+    assert ActiveAIMemory.summary_stored_as_text?
+  end
+
   test "requires agent_class" do
     memory = ActiveAIMemory.new(tier: "warm", summary: {})
     refute memory.valid?

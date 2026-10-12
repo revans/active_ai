@@ -18,7 +18,16 @@ class ActiveAIMemory < ApplicationRecord
   # double-handling it. Host apps that migrate this column to jsonb (see
   # ChangeSummaryToJsonb) need `serialize` to switch off accordingly, so this
   # checks the actual column type instead of assuming SQLite == text.
-  serialize :summary, coder: JSON if columns_hash["summary"].sql_type.casecmp?("text")
+  #
+  # A host app that uses agents and tools but not memory has no
+  # active_ai_memories table, and production eager loads this class at boot.
+  # Reading the column then raised and kept the whole app from starting, so
+  # the check answers false when the table is not there.
+  def self.summary_stored_as_text?
+    table_exists? && columns_hash["summary"].sql_type.casecmp?("text")
+  end
+
+  serialize :summary, coder: JSON if summary_stored_as_text?
 
   has_many :active_ai_memory_embeddings, foreign_key: :memory_id, dependent: :destroy
   has_many :active_ai_memory_flags,      foreign_key: :memory_id, dependent: :destroy
