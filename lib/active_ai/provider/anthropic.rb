@@ -48,12 +48,20 @@ module ActiveAI
         nil
       end
 
+      FINISH_REASONS = {
+        "end_turn" => :complete, "stop_sequence" => :complete, "max_tokens" => :truncated,
+        "model_context_window_exceeded" => :truncated, "tool_use" => :tool_use, "refusal" => :refused,
+        "pause_turn" => :other
+      }.freeze
+
       attr_reader :last_usage, :last_tool_calls, :last_assistant_content
 
       def call(canonical)
         params   = build_anthropic_params(canonical)
+        @last_model = @last_raw_finish_reason = @last_refusal = nil
         response = client.messages.create(**params)
         @last_usage             = extract_usage(response)
+        record_facts(response)
         @last_tool_calls        = []
         @last_assistant_content = []
         response.content.first.text
@@ -66,10 +74,12 @@ module ActiveAI
         @last_tool_calls        = []
         @last_assistant_content = []
         params             = build_anthropic_params(canonical)
+        @last_model = @last_raw_finish_reason = @last_refusal = nil
         message_stream     = client.messages.stream(**params)
         message_stream.text.each { |text| yield text }
         accumulated_message         = message_stream.accumulated_message
         @last_usage             = extract_usage(accumulated_message)
+        record_facts(accumulated_message)
         @last_tool_calls        = extract_tool_calls(accumulated_message)
         @last_assistant_content = extract_assistant_content(accumulated_message)
       rescue ::Anthropic::Errors::Error => provider_error
@@ -222,9 +232,16 @@ module ActiveAI
           output_tokens:         raw_usage.output_tokens,
           cache_creation_tokens: safe_field(raw_usage, :cache_creation_input_tokens),
           cache_read_tokens:     safe_field(raw_usage, :cache_read_input_tokens),
+          reasoning_tokens:      nil, # Anthropic folds thinking into output_tokens and does not report it separately
           stop_reason:           safe_field(response, :stop_reason),
           provider_request_id:   safe_field(response, :id)
         }
+      end
+
+      # The model that actually served the request and why it stopped, as Anthropic reported them.
+      def record_facts(message)
+        @last_model             = safe_field(message, :model)&.to_s
+        @last_raw_finish_reason = safe_field(message, :stop_reason)&.to_s
       end
 
       def safe_field(obj, method)

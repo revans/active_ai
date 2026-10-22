@@ -45,6 +45,20 @@ module ActiveAI
         name.demodulize.downcase
       end
 
+      # How a provider's own stop words map onto Response::FINISH_REASONS. Subclasses override.
+      FINISH_REASONS = {}.freeze
+
+      # Facts about the last call, set by the provider: the model that actually served it, why it stopped
+      # (exactly as the provider said), and any refusal text. nil until a call has been made.
+      attr_reader :last_model, :last_raw_finish_reason, :last_refusal
+
+      # Why the last call stopped, in the unified vocabulary. A refusal always wins.
+      def last_finish_reason
+        return :refused if last_refusal.present?
+        return nil if last_raw_finish_reason.blank?
+        self.class::FINISH_REASONS.fetch(last_raw_finish_reason.to_s, :other)
+      end
+
       def call(params)
         raise NotImplementedError, "#{self.class}#call is not implemented"
       end

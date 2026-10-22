@@ -13,6 +13,10 @@ module ActiveAI
       # which also counts any reasoning tokens. OpenAI-compatible providers that inherit from this class
       # and still expect `max_tokens` override the constant (see XAI).
       OUTPUT_LIMIT_PARAMETER = :max_completion_tokens
+      FINISH_REASONS = {
+        "stop" => :complete, "length" => :truncated, "tool_calls" => :tool_use, "function_call" => :tool_use,
+        "content_filter" => :refused
+      }.freeze
       MODEL_DEFAULTS       = %w[gpt-4.1 gpt-4.1-mini gpt-4.1-nano gpt-4o gpt-4o-mini o4-mini o3-mini o3].freeze
 
       def self.model_defaults
@@ -52,11 +56,13 @@ module ActiveAI
       def call(canonical)
         @last_tool_calls        = []
         @last_assistant_content = []
+        @last_model = @last_raw_finish_reason = @last_refusal = nil
         response    = client.chat(parameters: build_params(canonical))
         @last_usage = extract_usage_from_response(response)
-        content = response.dig("choices", 0, "message", "content")
-        raise_refusal(response.dig("choices", 0, "message", "refusal")) if content.blank?
-        content
+        @last_model             = response["model"]
+        @last_raw_finish_reason = response.dig("choices", 0, "finish_reason")
+        @last_refusal           = response.dig("choices", 0, "message", "refusal").presence
+        response.dig("choices", 0, "message", "content")
       rescue ::OpenAI::Error, Faraday::Error => provider_error
         raise provider_error_from(provider_error)
       end
@@ -64,6 +70,7 @@ module ActiveAI
       def stream(canonical, &block)
         @last_tool_calls        = []
         @last_assistant_content = []
+        @last_model = @last_raw_finish_reason = @last_refusal = nil
         accumulator = {}
 
         params = build_params(canonical).merge(
@@ -73,7 +80,7 @@ module ActiveAI
 
         client.chat(parameters: params)
         @last_usage = normalize_usage(accumulator)
-        raise_refusal(accumulator["refusal"]) if accumulator["refusal"].present? && accumulator["tool_calls"].blank? && !accumulator["streamed_text"]
+        record_streamed_facts(accumulator)
         finalize_tool_calls(accumulator)
       rescue ::OpenAI::Error, Faraday::Error => provider_error
         raise provider_error_from(provider_error)
@@ -176,12 +183,10 @@ module ActiveAI
         end
 
         choices = chunk["choices"] || []
+        accumulator["model"] = chunk["model"] if chunk["model"].present?
 
         content = choices.dig(0, "delta", "content")
-        if content.present?
-          accumulator["streamed_text"] = true
-          yield content
-        end
+        yield content if content.present?
 
         if (refusal = choices.dig(0, "delta", "refusal")).present?
           accumulator["refusal"] = "#{accumulator["refusal"]}#{refusal}"
@@ -242,10 +247,12 @@ module ActiveAI
       end
 
       # In structured-output mode the model can decline instead of answering; OpenAI reports that in a
-      # separate `refusal` field and leaves the content empty. That is a failure, not an empty answer.
-      def raise_refusal(refusal)
-        return if refusal.blank?
-        raise ActiveAI::ProviderError.new("#{provider_label}: the model declined to answer: #{clean_message(refusal)}", provider_message: clean_message(refusal), type: "refusal")
+      # separate `refusal` field and leaves the content empty. That is something the model did, so it is
+      # reported as finish_reason :refused with the text in last_refusal, not raised.
+      def record_streamed_facts(accumulator)
+        @last_model             = accumulator["model"]
+        @last_raw_finish_reason = accumulator["finish_reason"]
+        @last_refusal           = accumulator["refusal"].presence
       end
 
       def extract_usage_from_response(response)
@@ -263,6 +270,7 @@ module ActiveAI
           output_tokens:         raw["completion_tokens"].to_i,
           cache_creation_tokens: 0,
           cache_read_tokens:     raw.dig("prompt_tokens_details", "cached_tokens").to_i,
+          reasoning_tokens:      raw.dig("completion_tokens_details", "reasoning_tokens"),
           stop_reason:           raw["finish_reason"],
           provider_request_id:   raw["id"]
         }

@@ -184,3 +184,23 @@ end
   your prompt) are never read. Anything shaped like an API key in the provider's text is replaced with `[redacted]`,
   control characters are flattened, and the message is capped at `Provider::Base::MAX_PROVIDER_MESSAGE` characters.
 - `Concerns::Streamable` sends `provider_message` to the browser when there is one.
+
+---
+
+## Finish reasons
+
+Each provider says why it stopped in its own words. The gem keeps those words (`raw_finish_reason`, always a String)
+and maps them onto one vocabulary, `ActiveAI::Response::FINISH_REASONS`:
+
+| Unified | OpenAI | Anthropic |
+|---|---|---|
+| `:complete` | `stop` | `end_turn`, `stop_sequence` |
+| `:truncated` | `length` | `max_tokens`, `model_context_window_exceeded` |
+| `:tool_use` | `tool_calls`, `function_call` | `tool_use` |
+| `:refused` | `content_filter`, or a `refusal` in the message | `refusal` |
+| `:other` | anything unrecognised | `pause_turn`, anything unrecognised |
+
+A provider's `last_finish_reason`, `last_raw_finish_reason`, `last_model` (the model that actually served the
+request, which can differ from the one asked for) and `last_refusal` describe its most recent call. A custom
+provider gets the mapping by defining a `FINISH_REASONS` constant and setting `@last_model` and
+`@last_raw_finish_reason`; without them its responses report `finish_reason: :other`.

@@ -128,7 +128,7 @@ SummaryAgent.new(message: "Summarize this.").complete_structured
 
 | Provider | Mechanism | Notes |
 |---|---|---|
-| OpenAI | `response_format: json_schema` | `strict: true` by default, which requires `additionalProperties: false` and every property in `required`; pass `strict: false` to relax. A refusal raises `ProviderError` (type `"refusal"`). |
+| OpenAI | `response_format: json_schema` | `strict: true` by default, which requires `additionalProperties: false` and every property in `required`; pass `strict: false` to relax. A refusal comes back as a `Response` with `finish_reason: :refused`. |
 | Anthropic | `output_config.format` (native structured outputs) | Works on every Claude model tried (Haiku, Sonnet, Opus, Fable, 4.x and 5.x). `name`, `description` and `strict` are ignored. Still validate what comes back. Not tried together with `tools`. |
 | xAI | `response_format: json_schema` (inherited) | Not covered by the live contract tests. |
 

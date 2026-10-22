@@ -156,25 +156,27 @@ class StructuredOutputTest < ActiveSupport::TestCase
     assert_not sent.key?(:max_completion_tokens)
   end
 
-  test "an OpenAI refusal is an error, not an empty answer (blocking)" do
+  test "an OpenAI refusal is reported as the model's outcome, not raised (blocking)" do
     provider = ActiveAI::Provider::OpenAI.new
     client = Object.new
-    client.define_singleton_method(:chat) { |parameters:| { "choices" => [ { "message" => { "content" => nil, "refusal" => "I can't help with that." } } ], "usage" => {} } }
+    client.define_singleton_method(:chat) { |parameters:| { "model" => "m", "choices" => [ { "finish_reason" => "stop", "message" => { "content" => nil, "refusal" => "I can't help with that." } } ], "usage" => {} } }
     provider.instance_variable_set(:@client, client)
-    error = assert_raises(ActiveAI::ProviderError) { provider.call(canonical) }
-    assert_match "declined to answer: I can't help with that.", error.message
-    assert_equal "refusal", error.type
+    assert_nothing_raised { provider.call(canonical) }
+    assert_equal "I can't help with that.", provider.last_refusal
+    assert_equal :refused, provider.last_finish_reason
+    assert_equal "stop", provider.last_raw_finish_reason, "the provider's own word is kept alongside"
   end
 
-  test "an OpenAI refusal is an error, not an empty answer (streaming)" do
+  test "an OpenAI refusal is reported as the model's outcome, not raised (streaming)" do
     provider = ActiveAI::Provider::OpenAI.new
     client = Object.new
     client.define_singleton_method(:chat) do |parameters:|
       [ "I can't ", "help with that." ].each { |piece| parameters[:stream].call({ "choices" => [ { "delta" => { "refusal" => piece } } ] }, nil) }
     end
     provider.instance_variable_set(:@client, client)
-    error = assert_raises(ActiveAI::ProviderError) { provider.stream(canonical) { } }
-    assert_match "I can't help with that.", error.message
+    assert_nothing_raised { provider.stream(canonical) { } }
+    assert_equal "I can't help with that.", provider.last_refusal
+    assert_equal :refused, provider.last_finish_reason
   end
 
   test "streamed text with no refusal is untouched" do
@@ -254,17 +256,22 @@ class StructuredOutputTest < ActiveSupport::TestCase
     assert_equal :json_schema, sent[:output_config][:format_][:type], "the schema format must survive an effort option"
   end
 
-  test "a structured answer cut off at the token limit says so" do
-    agent = agent_class { response_schema SCHEMA }.new(system: "s", message: "hi")
-    stub_ai_response(agent, response: '{"answer": "ok and then it was cut o')
-    agent.define_singleton_method(:last_usage) { { stop_reason: :max_tokens } }
-    error = assert_raises(ActiveAI::StructuredOutputError) { agent.complete_structured }
-    assert_match(/cut off at the token limit.*raise max_tokens/, error.message)
-
-    openai_agent = agent_class { response_schema SCHEMA }.new(system: "s", message: "hi")
-    stub_ai_response(openai_agent, response: '{"answer": "unfinis')
-    openai_agent.define_singleton_method(:last_usage) { { stop_reason: "length" } }
-    assert_match "cut off", assert_raises(ActiveAI::StructuredOutputError) { openai_agent.complete_structured }.message
+  test "complete_structured says so when the answer was cut off, whichever provider answered" do
+    { "length" => :openai, "max_tokens" => :anthropic }.each do |raw, provider_name|
+      agent = agent_class(provider: provider_name) { response_schema SCHEMA }.new(system: "s", message: "hi")
+      provider = provider_name == :openai ? ActiveAI::Provider::OpenAI.new : ActiveAI::Provider::Anthropic.new
+      provider.define_singleton_method(:stream) do |_params, &block|
+        @last_raw_finish_reason = raw
+        @last_usage = nil
+        @last_tool_calls = []
+        @last_assistant_content = []
+        block.call('{"answer": "ok and then it was cut o')
+      end
+      agent.define_singleton_method(:provider_instance) { provider }
+      error = assert_raises(ActiveAI::StructuredOutputError) { agent.complete_structured }
+      assert_match(/cut off at the token limit.*#{raw}.*raise max_tokens/, error.message)
+      assert_equal '{"answer": "ok and then it was cut o', error.raw
+    end
   end
 
   test "Anthropic sends no tool_choice without a schema, and provider_options pass through" do

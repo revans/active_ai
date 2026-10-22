@@ -177,6 +177,7 @@ module ActiveAI
           "#{self.class.name}#stream requires a block — use: agent.stream { |event| ... }" unless block_given?
 
         @last_tool_call_results = []
+        @turn_usages = []
         params   = build_params
         @last_sent_messages  = params[:messages]
         @last_system_prompt  = params[:system]
@@ -204,6 +205,7 @@ module ActiveAI
 
             @last_provider_instance = provider_instance
             @last_provider_instance.stream(params.merge(messages: messages), &block)
+            @turn_usages << @last_provider_instance.last_usage
 
             tool_calls = @last_provider_instance.last_tool_calls
             break if tool_calls.blank?
@@ -244,22 +246,40 @@ module ActiveAI
         result
       end
 
+      # Like #complete, but returns an ActiveAI::Response: the text plus everything an app needs to act on it
+      # (why it stopped, who answered, which model served it, token usage summed over the call, latency).
+      #
+      # A truncated or refused answer comes back as a Response with finish_reason :truncated / :refused. It is
+      # not raised: the model answered, and the caller decides what to do. ProviderError is for failing to
+      # get an answer at all. #last_response holds the most recent one.
+      def generate
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        text = complete
+        @last_response = build_response(text, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
+      end
+
+      attr_reader :last_response
+
       # Like #complete, for an agent that declares a response_schema: returns the parsed Hash.
-      # Raises StructuredOutputError (with the raw text) if the answer is not valid JSON.
+      # Raises StructuredOutputError (with the raw text) when there is no usable object: the answer was cut
+      # off at the token limit, the model declined, or the text is not a JSON object. Use #generate to
+      # handle those cases yourself.
       def complete_structured
         unless self.class._response_schema
           raise ActiveAI::ConfigurationError, "#{self.class.name} declares no response_schema, so there is nothing to parse into"
         end
 
-        text = complete
-        parsed = JSON.parse(text)
-        return parsed if parsed.is_a?(Hash)
+        response = generate
+        return response.data if response.data
 
-        raise ActiveAI::StructuredOutputError.new("expected a JSON object, got #{parsed.class.name.downcase}", raw: text)
-      rescue JSON::ParserError => error
-        cut_off = %w[length max_tokens].include?(last_usage&.dig(:stop_reason).to_s)
-        reason = cut_off ? "the answer was cut off at the token limit (stop_reason: #{last_usage[:stop_reason]}); raise max_tokens" : "the answer was not valid JSON (#{error.message.truncate(80)})"
-        raise ActiveAI::StructuredOutputError.new(reason, raw: text)
+        reason = if response.truncated?
+          "the answer was cut off at the token limit (finish_reason: truncated, provider said #{response.raw_finish_reason.inspect}); raise max_tokens"
+        elsif response.refused?
+          "the model declined to answer: #{response.refusal.presence || "no reason given"}"
+        else
+          response.data_error || "the answer was not a JSON object"
+        end
+        raise ActiveAI::StructuredOutputError.new(reason, raw: response.text)
       end
 
       # Usage data from the last call — full breakdown including cache tokens.
@@ -298,6 +318,48 @@ module ActiveAI
         params[:response_schema] = self.class._response_schema if self.class._response_schema
         params[:options]         = request_options if request_options.present?
         params
+      end
+
+      SUMMED_USAGE_KEYS = %i[input_tokens output_tokens cache_creation_tokens cache_read_tokens reasoning_tokens].freeze
+
+      # Token usage added up over every provider call in the last run (a tool loop makes several), with the
+      # stop reason and request id from the final one. #last_usage still reports only the final call.
+      def combined_usage
+        calls = @turn_usages.to_a.compact
+        return nil if calls.empty?
+
+        total = calls.last.dup
+        SUMMED_USAGE_KEYS.each do |key|
+          values = calls.filter_map { |usage| usage[key] }
+          total[key] = values.sum if values.any?
+        end
+        total
+      end
+
+      def build_response(text, latency)
+        provider = @last_provider_instance
+        fact = ->(name) { provider.public_send(name) if provider.respond_to?(name) }
+        finish = fact.(:last_finish_reason) || :other
+        data, data_error = parse_structured(text, finish)
+        usage = combined_usage
+
+        ActiveAI::Response.new(
+          text: text, data: data, data_error: data_error, provider: resolved_provider, requested_model: resolved_model,
+          model: fact.(:last_model), finish_reason: finish, raw_finish_reason: fact.(:last_raw_finish_reason),
+          refusal: fact.(:last_refusal), usage: usage, turns: @turn_usages.to_a.size, request_id: usage&.dig(:provider_request_id),
+          tool_calls: last_tool_call_results, latency: latency.round(3)
+        )
+      end
+
+      # Only a finished answer is parsed; for a cut-off or refused one the finish reason is the explanation.
+      def parse_structured(text, finish)
+        return [ nil, nil ] unless self.class._response_schema
+        return [ nil, nil ] if %i[truncated refused tool_use].include?(finish)
+
+        parsed = JSON.parse(text)
+        parsed.is_a?(Hash) ? [ parsed, nil ] : [ nil, "expected a JSON object, got #{parsed.class.name.downcase}" ]
+      rescue JSON::ParserError => error
+        [ nil, "the answer was not valid JSON (#{error.message.truncate(80)})" ]
       end
 
       # Extra provider request parameters for the resolved provider (see .provider_options).
