@@ -80,6 +80,31 @@ Pass `memories: []` (the default) to assert that no memory is injected.
 
 ---
 
+## Response assertions
+
+For an `ActiveAI::Response` (what `agent.generate` returns; see [response.md](response.md)). Each failure says what the
+model actually did (why it stopped, who answered, a peek at the text), so a red test explains itself.
+
+```ruby
+response = agent.generate
+
+assert_ai_complete response                          # finished: not cut off, refused, or stopped for a tool
+assert_ai_finish_reason response, :truncated         # test how your app handles a cut-off or refused answer
+assert_ai_structured response                        # response.data is present (says why if not)
+assert_ai_within response, output_tokens: 400, seconds: 10
+assert_ai_served_by response, provider: :openai, model: /\Agpt-5/
+```
+
+`build_ai_response` makes a Response without calling a provider, for testing code that consumes one. It defaults to a
+complete answer; override anything:
+
+```ruby
+response = build_ai_response(finish_reason: :truncated, text: "1, 2, 3")
+response = build_ai_response(data: { "title" => "Hi" }, text: '{"title":"Hi"}')
+```
+
+---
+
 ## Tool call assertions
 
 ### `assert_ai_tool_called`

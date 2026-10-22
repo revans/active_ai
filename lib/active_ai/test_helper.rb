@@ -99,6 +99,75 @@ module ActiveAI
                       msg || "Expected system prompt NOT to include #{text.inspect}"
     end
 
+    # ── Response assertions ──────────────────────────────────────────────────────
+    # For an ActiveAI::Response (what agent.generate returns). Each failure says what the
+    # model actually did: why it stopped, who answered, and a peek at the text.
+
+    # Asserts the model finished normally: not cut off, not refused, not stopped for a tool call.
+    #
+    #   assert_ai_complete agent.generate
+    def assert_ai_complete(response, msg = nil)
+      assert response.complete?, msg || "Expected a complete response, but #{describe_ai_response(response)}"
+    end
+
+    # Asserts the model stopped for the given reason (:complete, :truncated, :tool_use, :refused, :other).
+    # Handy for testing how your app handles a cut-off or refused answer.
+    #
+    #   assert_ai_finish_reason response, :truncated
+    def assert_ai_finish_reason(response, expected, msg = nil)
+      assert_equal expected, response.finish_reason, msg || "Expected finish_reason #{expected.inspect}, but #{describe_ai_response(response)}"
+    end
+
+    # Asserts there is a parsed structured answer (response.data), explaining why not when there is none.
+    #
+    #   assert_ai_structured agent.generate
+    def assert_ai_structured(response, msg = nil)
+      assert response.data, msg || "Expected structured data, but #{describe_ai_response(response)}"
+    end
+
+    # Asserts the call stayed inside a budget. Any combination of limits; those omitted are not checked.
+    #
+    #   assert_ai_within response, output_tokens: 400, seconds: 10
+    def assert_ai_within(response, output_tokens: nil, total_tokens: nil, seconds: nil)
+      usage = response.usage || {}
+      if output_tokens
+        assert_operator usage[:output_tokens].to_i, :<=, output_tokens, "Used #{usage[:output_tokens]} output tokens (limit #{output_tokens}). #{describe_ai_response(response)}"
+      end
+      if total_tokens
+        total = usage[:input_tokens].to_i + usage[:output_tokens].to_i
+        assert_operator total, :<=, total_tokens, "Used #{total} tokens in total (limit #{total_tokens}). #{describe_ai_response(response)}"
+      end
+      assert_operator response.latency, :<=, seconds, "Took #{response.latency}s (limit #{seconds}s). #{describe_ai_response(response)}" if seconds
+    end
+
+    # Asserts who answered: the provider, and optionally the model that actually served the request
+    # (a String for an exact match, a Regexp for a pattern).
+    #
+    #   assert_ai_served_by response, provider: :openai, model: /\Agpt-5/
+    def assert_ai_served_by(response, provider:, model: nil)
+      assert_equal provider.to_sym, response.provider, "Expected provider #{provider.inspect}, but #{describe_ai_response(response)}"
+      return unless model
+      matched = model.is_a?(Regexp) ? model.match?(response.model.to_s) : model == response.model
+      assert matched, "Expected served model #{model.inspect}, but #{describe_ai_response(response)}"
+    end
+
+    # Builds an ActiveAI::Response for testing code that consumes one, without calling a provider.
+    # Defaults to a complete answer; override anything.
+    #
+    #   response = build_ai_response(finish_reason: :truncated, text: "1, 2, 3")
+    #   response = build_ai_response(data: { "title" => "Hi" }, text: '{"title":"Hi"}')
+    def build_ai_response(text: "ok", finish_reason: :complete, raw_finish_reason: nil, data: nil, data_error: nil, refusal: nil,
+                          provider: :test, requested_model: "test-model", model: "test-model", usage: nil, turns: 1,
+                          request_id: "req-test", tool_calls: [], latency: 0.01)
+      ActiveAI::Response.new(
+        text: text, data: data, data_error: data_error, provider: provider, requested_model: requested_model, model: model,
+        finish_reason: finish_reason, raw_finish_reason: raw_finish_reason || finish_reason.to_s, refusal: refusal,
+        usage: usage || { input_tokens: 10, output_tokens: 5, cache_creation_tokens: 0, cache_read_tokens: 0, reasoning_tokens: nil,
+                          stop_reason: raw_finish_reason || finish_reason.to_s, provider_request_id: request_id },
+        turns: turns, request_id: request_id, tool_calls: tool_calls, latency: latency
+      )
+    end
+
     # Stubs ActiveAI::Memory.recall to return a fixed array of memories.
     #
     # With a block — automatically restores recall when the block exits:
@@ -130,6 +199,17 @@ module ActiveAI
       return unless @_memory_recall_original
       ActiveAI::Memory.define_singleton_method(:recall, @_memory_recall_original)
       @_memory_recall_original = nil
+    end
+
+    private
+
+    def describe_ai_response(response)
+      peek = response.text.to_s.squish.truncate(80)
+      [ "finish_reason was #{response.finish_reason.inspect} (provider said #{response.raw_finish_reason.inspect})",
+        ("refusal: #{response.refusal.inspect}" if response.refusal.present?),
+        ("data_error: #{response.data_error}" if response.data_error.present?),
+        "served by #{response.provider}/#{response.model.inspect}",
+        "text: #{peek.inspect}" ].compact.join("; ")
     end
   end
 end
