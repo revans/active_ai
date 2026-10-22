@@ -50,6 +50,10 @@ API key resolution: `api_key_resolver` → `Rails.application.credentials.active
 
 **Available models:** `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `o4-mini`, `o3-mini`, `o3` (plus live models from the API).
 
+**Output limit:** the agent's `max_tokens` is sent as `max_completion_tokens`, which current OpenAI models require
+(they reject `max_tokens`) and which also counts any reasoning tokens. xAI still takes `max_tokens` and overrides
+`OUTPUT_LIMIT_PARAMETER` to keep it; a provider inheriting from `Provider::OpenAI` can do the same.
+
 **Caching:** OpenAI does not support per-block caching. The system prompt, skills, and source files are combined into a single system message. OpenAI's own automatic prompt caching applies to repeated prefixes, but this is transparent to the application.
 
 **Usage fields returned:** `input_tokens`, `output_tokens`, `cache_read_tokens` (from `prompt_tokens_details`), `stop_reason`.

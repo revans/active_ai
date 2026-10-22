@@ -9,6 +9,10 @@ require "json"
 module ActiveAI
   module Provider
     class OpenAI < Base
+      # OpenAI's current models (gpt-5.x, o-series) reject `max_tokens` and require `max_completion_tokens`,
+      # which also counts any reasoning tokens. OpenAI-compatible providers that inherit from this class
+      # and still expect `max_tokens` override the constant (see XAI).
+      OUTPUT_LIMIT_PARAMETER = :max_completion_tokens
       MODEL_DEFAULTS       = %w[gpt-4.1 gpt-4.1-mini gpt-4.1-nano gpt-4o gpt-4o-mini o4-mini o3-mini o3].freeze
 
       def self.model_defaults
@@ -118,10 +122,10 @@ module ActiveAI
         messages.concat(canonical[:messages])
 
         params = {
-          model:      canonical[:model],
-          max_tokens: canonical[:max_tokens],
-          messages:   messages
+          model:    canonical[:model],
+          messages: messages
         }
+        params[self.class::OUTPUT_LIMIT_PARAMETER] = canonical[:max_tokens] unless canonical[:max_tokens].nil?
 
         # Convert Anthropic-format tool definitions to OpenAI format.
         # Anthropic uses `input_schema:`; OpenAI wraps each tool in

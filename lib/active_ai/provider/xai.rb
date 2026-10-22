@@ -4,6 +4,7 @@ module ActiveAI
   module Provider
     class XAI < OpenAI
       MODEL_DEFAULTS      = %w[grok-3 grok-3-mini].freeze
+      OUTPUT_LIMIT_PARAMETER = :max_tokens
 
       def self.model_defaults
         MODEL_DEFAULTS
