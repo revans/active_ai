@@ -67,6 +67,16 @@ class ResponseAssertionsTest < ActiveSupport::TestCase
     assert_equal "my message", failure_message { assert_ai_complete build_ai_response(finish_reason: :truncated), "my message" }
   end
 
+  test "build_ai_response sets millisecond start and end times that agree with latency" do
+    response = build_ai_response(latency: 1.5)
+    assert_equal 0, response.start_time.nsec % 1_000_000
+    assert_in_delta 1.5, response.end_time - response.start_time, 0.001
+    assert_equal "2026-10-22T12:00:00.123Z", build_ai_response(start_time: Time.utc(2026, 10, 22, 12, 0, Rational(123, 1000))).as_json["start_time"]
+    assert_equal "2026-10-22T12:00:00.123Z", build_ai_response(start_time: Time.utc(2026, 10, 22, 12, 0, 0.123)).as_json["start_time"],
+                 "an inexact float is rounded to the millisecond, not truncated to .122"
+    assert_equal "2026-10-22T12:00:00.457Z", build_ai_response(start_time: Time.utc(2026, 10, 22, 12, 0, Rational(4566, 10_000))).as_json["start_time"]
+  end
+
   test "the factory output really is what agent.generate returns" do
     assert_equal ActiveAI::Response.members.sort, ActiveAI::Response.new(**build_ai_response.to_h).members.sort
   end

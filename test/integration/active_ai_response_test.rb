@@ -236,6 +236,71 @@ class ResponseEnvelopeTest < ActiveSupport::TestCase
     assert_match(/cut off at the token limit.*"max_tokens".*raise max_tokens/, cut.message)
   end
 
+  # ── start_time / end_time ────────────────────────────────────────────────────
+
+  def timed_agent(delay: 0)
+    agent = WritingAgent.new(system: "s", message: "hi")
+    agent.define_singleton_method(:stream) { |&block| sleep(delay); block.call("ok") }
+    agent
+  end
+
+  test "generate sets start_time and end_time from when the run starts and ends" do
+    before = Time.now.utc
+    response = timed_agent(delay: 0.03).generate
+    after = Time.now.utc
+
+    assert_kind_of Time, response.start_time
+    assert response.start_time.utc?, "times are UTC"
+    assert_operator response.start_time, :>=, before.round(3) - 0.001
+    assert_operator response.end_time, :<=, after.round(3) + 0.001
+    assert_operator response.end_time - response.start_time, :>=, 0.03, "the run took at least the delay"
+    assert_in_delta response.latency, response.end_time - response.start_time, 0.05, "the monotonic latency and the wall-clock span agree"
+  end
+
+  test "times are held to the millisecond" do
+    response = timed_agent.generate
+    [ response.start_time, response.end_time ].each do |time|
+      assert_equal 0, time.nsec % 1_000_000, "#{time.iso8601(9)} has sub-millisecond digits"
+    end
+  end
+
+  test "as_json renders both times as ISO 8601 UTC with exactly three fractional digits" do
+    json = timed_agent.generate.as_json
+    %w[start_time end_time].each { |key| assert_match(/\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z\z/, json[key], key) }
+    assert_nothing_raised { JSON.generate(json) }
+  end
+
+  test "the milliseconds survive whatever time precision the host app configures" do
+    original = ActiveSupport::JSON::Encoding.time_precision
+    response = timed_agent.generate
+    [ 0, 6 ].each do |precision|
+      ActiveSupport::JSON::Encoding.time_precision = precision
+      assert_match(/\.\d{3}Z\z/, response.as_json["start_time"], "precision #{precision}")
+    end
+  ensure
+    ActiveSupport::JSON::Encoding.time_precision = original
+  end
+
+  test "the rendered time parses back to the same instant" do
+    response = timed_agent.generate
+    json = response.as_json
+    assert_equal response.start_time, Time.iso8601(json["start_time"])
+    assert_equal response.end_time, Time.iso8601(json["end_time"])
+  end
+
+  test "a response with no times renders them as null" do
+    bare = build_ai_response.with(start_time: nil, end_time: nil)
+    assert_nil bare.as_json["start_time"]
+    assert_nil bare.as_json["end_time"]
+  end
+
+  test "an agent stubbed with stub_ai_response still gets times" do
+    agent = WritingAgent.new(system: "s", message: "hi")
+    stub_ai_response(agent, response: "hello")
+    response = agent.generate
+    assert_operator response.end_time, :>=, response.start_time
+  end
+
   # ── serialization ────────────────────────────────────────────────────────────
 
   test "as_json is plain JSON-friendly data" do
@@ -253,7 +318,8 @@ class ResponseEnvelopeTest < ActiveSupport::TestCase
   test "the predicates agree with finish_reason" do
     ActiveAI::Response::FINISH_REASONS.each do |reason|
       response = ActiveAI::Response.new(text: "", data: nil, data_error: nil, provider: :x, requested_model: "m", model: "m", finish_reason: reason,
-                                        raw_finish_reason: nil, refusal: nil, usage: nil, turns: 1, request_id: nil, tool_calls: [], latency: 0)
+                                        raw_finish_reason: nil, refusal: nil, usage: nil, turns: 1, request_id: nil, tool_calls: [], latency: 0,
+                                        start_time: Time.now.utc, end_time: Time.now.utc)
       assert_equal reason == :complete, response.complete?
       assert_equal reason == :truncated, response.truncated?
       assert_equal reason == :refused, response.refused?

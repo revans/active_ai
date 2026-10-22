@@ -160,13 +160,15 @@ module ActiveAI
     #   response = build_ai_response(data: { "title" => "Hi" }, text: '{"title":"Hi"}')
     def build_ai_response(text: "ok", finish_reason: :complete, raw_finish_reason: nil, data: nil, data_error: nil, refusal: nil,
                           provider: :test, requested_model: "test-model", model: "test-model", usage: nil, turns: 1,
-                          request_id: "req-test", tool_calls: [], latency: 0.01)
+                          request_id: "req-test", tool_calls: [], latency: 0.01, start_time: nil, end_time: nil)
+      start_time ||= Time.now.utc.round(3)
+      end_time ||= (start_time + latency).round(3)
       ActiveAI::Response.new(
         text: text, data: data, data_error: data_error, provider: provider, requested_model: requested_model, model: model,
         finish_reason: finish_reason, raw_finish_reason: raw_finish_reason || finish_reason.to_s, refusal: refusal,
         usage: usage || { input_tokens: 10, output_tokens: 5, cache_creation_tokens: 0, cache_read_tokens: 0, reasoning_tokens: nil,
                           stop_reason: raw_finish_reason || finish_reason.to_s, provider_request_id: request_id },
-        turns: turns, request_id: request_id, tool_calls: tool_calls, latency: latency
+        turns: turns, request_id: request_id, tool_calls: tool_calls, latency: latency, start_time: start_time, end_time: end_time
       )
     end
 

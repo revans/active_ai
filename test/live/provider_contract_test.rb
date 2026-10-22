@@ -60,6 +60,10 @@ module ProviderContract
         assert_operator response.usage[:input_tokens], :>, 0
         assert_predicate response.request_id, :present?
         assert_operator response.latency, :>, 0
+        assert_operator response.end_time, :>, response.start_time
+        assert_in_delta response.latency, response.end_time - response.start_time, 0.05
+        assert_match(/\.\d{3}Z\z/, response.as_json["start_time"], "times render with milliseconds")
+        assert_in_delta Time.now.utc, response.end_time, 60, "the times are real wall-clock times"
       end
     end
 

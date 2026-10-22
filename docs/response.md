@@ -19,7 +19,9 @@ response.usage              # token counts, summed over every provider call in t
 response.turns              # how many provider calls the run took (more than 1 when tools ran)
 response.request_id         # the provider's id for the final call, for support tickets
 response.tool_calls         # tools the agent executed
-response.latency            # seconds, wall clock, for the whole run
+response.latency            # seconds the whole run took, measured with a monotonic clock
+response.start_time         # when the run started: UTC, to the millisecond, set by ActiveAI
+response.end_time           # when the run ended: UTC, to the millisecond
 ```
 
 `response.complete?`, `truncated?`, `refused?` and `tool_use?` test `finish_reason`. `response.as_json` is plain
@@ -46,7 +48,9 @@ symbols become strings, and it is ready to store or log. (In Ruby, `response.fin
   "turns": 1,                  // Integer. Provider calls the run took (more than 1 when tools ran).
   "request_id": "...",         // String or null. The provider's id for the final call.
   "tool_calls": [ ],           // Array. Tools the agent executed: { id, name, result }.
-  "latency": 1.045             // Number. Seconds, wall clock, for the whole run.
+  "latency": 1.045,            // Number. Seconds the whole run took (monotonic clock).
+  "start_time": "2026-10-22T19:40:57.278Z", // String. When the run started: ISO 8601, UTC, always 3 millisecond digits.
+  "end_time": "2026-10-22T19:40:58.323Z"    // String. When the run ended, same format.
 }
 ```
 
@@ -67,7 +71,15 @@ symbols become strings, and it is ready to store or log. (In Ruby, `response.fin
 | `turns` | integer | no | `0` only when no provider call happened (a stubbed agent). |
 | `request_id` | string | **yes** | Equals `usage.provider_request_id`. |
 | `tool_calls` | array | no (may be `[]`) | Each entry is `{ "id", "name", "result" }`: the tool's *result*, not its input. |
-| `latency` | number | no | Seconds, rounded to milliseconds. |
+| `latency` | number | no | Seconds the run took, rounded to milliseconds. Measured with a monotonic clock. |
+| `start_time` | string | no | When the run started. ISO 8601 UTC with exactly three fractional digits, e.g. `2026-10-22T19:40:57.278Z`. |
+| `end_time` | string | no | When the run ended, same format. |
+
+`start_time` and `end_time` are set by ActiveAI itself (wall clock, UTC, rounded to the millisecond), not reported by the
+provider, and the format does not depend on any JSON time-precision setting in your app. In Ruby they are `Time` objects;
+`as_json` renders them as strings, and `Time.iso8601(...)` parses them back to the same instant. `latency` is measured with
+a monotonic clock, so it stays correct if the system clock is adjusted mid-run; it can differ from `end_time - start_time`
+by a few milliseconds. Use the times for "when did this happen" and `latency` for "how long did it take".
 
 ### `usage`
 
@@ -132,7 +144,9 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
-  "latency": 1.045
+  "latency": 1.602,
+  "start_time": "2026-10-22T19:40:57.278Z",
+  "end_time": "2026-10-22T19:40:58.879Z"
 }
 ```
 
@@ -164,7 +178,9 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
-  "latency": 1.179
+  "latency": 1.179,
+  "start_time": "2026-10-22T19:41:00.988Z",
+  "end_time": "2026-10-22T19:41:02.167Z"
 }
 ```
 
@@ -200,7 +216,9 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
-  "latency": 0.811
+  "latency": 0.786,
+  "start_time": "2026-10-22T19:40:58.880Z",
+  "end_time": "2026-10-22T19:40:59.665Z"
 }
 ```
 
@@ -234,7 +252,9 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
-  "latency": 1.639
+  "latency": 1.814,
+  "start_time": "2026-10-22T19:41:02.167Z",
+  "end_time": "2026-10-22T19:41:03.981Z"
 }
 ```
 
@@ -248,7 +268,7 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
 
 ```json
 {
-  "text": "1,2",
+  "text": "",
   "data": null,
   "data_error": null,
   "provider": "openai",
@@ -262,14 +282,16 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
     "output_tokens": 20,
     "cache_creation_tokens": 0,
     "cache_read_tokens": 0,
-    "reasoning_tokens": 7,
+    "reasoning_tokens": 20,
     "stop_reason": "length",
     "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
   },
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
-  "latency": 1.463
+  "latency": 1.322,
+  "start_time": "2026-10-22T19:40:59.665Z",
+  "end_time": "2026-10-22T19:41:00.988Z"
 }
 ```
 
@@ -301,7 +323,9 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
-  "latency": 1.674
+  "latency": 0.872,
+  "start_time": "2026-10-22T19:41:03.982Z",
+  "end_time": "2026-10-22T19:41:04.854Z"
 }
 ```
 
@@ -335,7 +359,9 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
-  "latency": 1.045
+  "latency": 1.045,
+  "start_time": "2026-10-22T19:41:10.100Z",
+  "end_time": "2026-10-22T19:41:10.245Z"
 }
 ```
 
@@ -373,7 +399,9 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
       "result": "{\"price\":\"$19\"}"
     }
   ],
-  "latency": 1.179
+  "latency": 1.179,
+  "start_time": "2026-10-22T19:41:10.100Z",
+  "end_time": "2026-10-22T19:41:10.379Z"
 }
 ```
 

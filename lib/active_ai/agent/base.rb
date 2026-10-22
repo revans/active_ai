@@ -253,9 +253,11 @@ module ActiveAI
       # not raised: the model answered, and the caller decides what to do. ProviderError is for failing to
       # get an answer at all. #last_response holds the most recent one.
       def generate
+        start_time = Time.now.utc.round(3)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         text = complete
-        @last_response = build_response(text, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
+        latency = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+        @last_response = build_response(text, latency, start_time: start_time, end_time: Time.now.utc.round(3))
       end
 
       attr_reader :last_response
@@ -336,7 +338,9 @@ module ActiveAI
         total
       end
 
-      def build_response(text, latency)
+      # start_time and end_time are wall-clock UTC. latency comes from a monotonic clock, so it stays right even
+      # if the system clock is adjusted mid-run; the two can differ by a few milliseconds.
+      def build_response(text, latency, start_time:, end_time:)
         provider = @last_provider_instance
         fact = ->(name) { provider.public_send(name) if provider.respond_to?(name) }
         finish = fact.(:last_finish_reason) || :other
@@ -347,7 +351,7 @@ module ActiveAI
           text: text, data: data, data_error: data_error, provider: resolved_provider, requested_model: resolved_model,
           model: fact.(:last_model), finish_reason: finish, raw_finish_reason: fact.(:last_raw_finish_reason),
           refusal: fact.(:last_refusal), usage: usage, turns: @turn_usages.to_a.size, request_id: usage&.dig(:provider_request_id),
-          tool_calls: last_tool_call_results, latency: latency.round(3)
+          tool_calls: last_tool_call_results, latency: latency.round(3), start_time: start_time, end_time: end_time
         )
       end
 
