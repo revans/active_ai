@@ -1,4 +1,6 @@
 module ActiveAI
+  # Test helpers for apps using ActiveAI: stubs (no provider calls), Response assertions, tool-call and
+  # system-prompt assertions, and a build_ai_response factory. A table of all of them is in docs/testing.md.
   module TestHelper
     # Stubs a specific agent instance to yield a fixed response string.
     # Bypasses the provider entirely — use when you only care about what the

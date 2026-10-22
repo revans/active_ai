@@ -19,6 +19,26 @@ end
 
 ---
 
+## Helpers at a glance
+
+Everything below comes from `ActiveAI::TestHelper`.
+
+| Helper | What it's for | Details |
+|---|---|---|
+| `stub_ai_response(agent, response:)` | Replace an agent's stream with a fixed string. | [Stub helpers](#stub-helpers) |
+| `stub_provider(agent, response:, tool_calls:)` | Simulate the agentic loop, tool calls included. | [Stub helpers](#stub-helpers) |
+| `stub_memory_recall(memories:)` / `restore_memory_recall` | Control which memories are injected. | [Stub helpers](#stub-helpers) |
+| `build_ai_response(**overrides)` | **New.** Build an `ActiveAI::Response` without calling a provider. | [Response assertions](#response-assertions) |
+| `assert_ai_complete(response)` | **New.** The model finished: not cut off, refused, or stopped for a tool. | [Response assertions](#response-assertions) |
+| `assert_ai_finish_reason(response, :truncated)` | **New.** The model stopped for this reason. | [Response assertions](#response-assertions) |
+| `assert_ai_structured(response)` | **New.** There is a parsed `response.data` (says why if not). | [Response assertions](#response-assertions) |
+| `assert_ai_within(response, output_tokens:, total_tokens:, seconds:)` | **New.** The call stayed inside a budget. | [Response assertions](#response-assertions) |
+| `assert_ai_served_by(response, provider:, model:)` | **New.** Who answered, and which model served it. | [Response assertions](#response-assertions) |
+| `assert_ai_tool_called` / `refute_ai_tool_called` / `assert_no_ai_tools_called` | Which tools ran. | [Tool call assertions](#tool-call-assertions) |
+| `assert_agent_system_includes` / `refute_agent_system_includes` | What is in the system prompt. | [System prompt assertions](#system-prompt-assertions) |
+
+---
+
 ## Stub helpers
 
 ### `stub_ai_response` — bypass the provider entirely
@@ -320,5 +340,5 @@ before committing them.
 ## Comparing providers in your own app
 
 `rails generate active_ai:evaluation` scaffolds a harness (`bin/rails ai:compare`) that runs your own scenarios through
-each provider and scores them with checks, with a blind transcript for the judgement a check cannot make. See
-[generators.md](generators.md#active_aievaluation). Its generated test uses `build_ai_response` above, so it needs no keys.
+each provider and scores them with checks, with a blind transcript for the judgement a check cannot make. See the
+[evaluation guide](evaluation.md). Its generated test uses `build_ai_response` above, so it needs no keys.

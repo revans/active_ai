@@ -25,6 +25,370 @@ response.latency            # seconds, wall clock, for the whole run
 `response.complete?`, `truncated?`, `refused?` and `tool_use?` test `finish_reason`. `response.as_json` is plain
 JSON-friendly data (symbols become strings), ready to store.
 
+## What to expect back
+
+Every provider returns the **same JSON shape**. Only some values differ. This is `response.as_json`: keys are strings,
+symbols become strings, and it is ready to store or log. (In Ruby, `response.finish_reason` is a Symbol and
+`response.provider` is a Symbol; `as_json` turns them into strings.)
+
+```json
+{
+  "text": "",                  // String. What the model wrote. May be "" or partial: check finish_reason.
+  "data": null,                // Object or null. The parsed structured answer (needs a response_schema).
+  "data_error": null,          // String or null. Why `data` is null for a finished answer.
+  "provider": "openai",        // "openai", "anthropic", "xai", or your custom provider's name.
+  "requested_model": "...",    // String. The model you asked for.
+  "model": "...",              // String or null. The model that served it, as the provider reported it.
+  "finish_reason": "complete", // "complete" | "truncated" | "tool_use" | "refused" | "other".
+  "raw_finish_reason": "stop", // String or null. The provider's own word, never altered.
+  "refusal": null,             // String or null. The model's stated reason, when finish_reason is "refused".
+  "usage": { },                // Object or null. Token counts (below), summed over the whole run.
+  "turns": 1,                  // Integer. Provider calls the run took (more than 1 when tools ran).
+  "request_id": "...",         // String or null. The provider's id for the final call.
+  "tool_calls": [ ],           // Array. Tools the agent executed: { id, name, result }.
+  "latency": 1.045             // Number. Seconds, wall clock, for the whole run.
+}
+```
+
+### Field reference
+
+| Field | Type | Can be null? | Notes |
+|---|---|---|---|
+| `text` | string | no (may be `""`) | Empty when the answer was cut off before any text, or refused. |
+| `data` | object | **yes** | Set only for a *finished* answer when the agent declares a `response_schema`. |
+| `data_error` | string | **yes** | Set only when the answer finished but was not a JSON object. `data` and `data_error` are never both set. |
+| `provider` | string | no | Who answered. |
+| `requested_model` | string | no | What you asked for. |
+| `model` | string | **yes** | What actually served it. Null only for a custom provider that does not report it. |
+| `finish_reason` | string | no | One of five values. See [providers.md](providers.md#finish-reasons) for each provider's mapping. |
+| `raw_finish_reason` | string | **yes** | Always a String when present, even where the provider's SDK uses symbols. |
+| `refusal` | string | **yes** | Only when `finish_reason` is `"refused"` and the provider said why. |
+| `usage` | object | **yes** | Null if the provider reported nothing. |
+| `turns` | integer | no | `0` only when no provider call happened (a stubbed agent). |
+| `request_id` | string | **yes** | Equals `usage.provider_request_id`. |
+| `tool_calls` | array | no (may be `[]`) | Each entry is `{ "id", "name", "result" }`: the tool's *result*, not its input. |
+| `latency` | number | no | Seconds, rounded to milliseconds. |
+
+### `usage`
+
+The same keys for every provider:
+
+| Key | Type | Notes |
+|---|---|---|
+| `input_tokens` | integer | |
+| `output_tokens` | integer | Includes hidden reasoning tokens. A low limit can be spent entirely on thinking. |
+| `cache_creation_tokens` | integer | OpenAI always reports `0` (it caches automatically and does not report creation). |
+| `cache_read_tokens` | integer | Tokens served from the provider's prompt cache. |
+| `reasoning_tokens` | integer or null | **OpenAI reports it; Anthropic is `null`** (it folds thinking into `output_tokens`). |
+| `stop_reason` | string | The provider's raw word again, kept here for back-compatibility. |
+| `provider_request_id` | string | |
+
+Counts are summed over every provider call in the run. `stop_reason` and `provider_request_id` come from the final call.
+
+### Same shape, different values
+
+| | OpenAI | Anthropic |
+|---|---|---|
+| `raw_finish_reason` | `stop`, `length`, `tool_calls`, `content_filter` | `end_turn`, `max_tokens`, `tool_use`, `refusal`, `stop_sequence` |
+| `request_id` looks like | `chatcmpl-...` | `msg_...` |
+| `usage.reasoning_tokens` | an integer (can be `0`) | `null` |
+| `usage.cache_creation_tokens` | always `0` | real count when caching is on |
+| A refusal arrives as | a `refusal` field in structured mode, or `content_filter` | a `refusal` stop reason, with no text |
+| `data` for a schema | strictly enforced by the provider | guided by the provider; still validate it |
+| `model` | the served model id | the served model id |
+
+xAI uses OpenAI's shapes and mapping. It is not covered by the live contract tests.
+
+### Real examples
+
+Captured from real calls on 2026-10-22 (`gpt-5.6-terra` and `claude-sonnet-5-5`); request ids replaced with placeholders.
+Latency and token counts vary run to run.
+
+**A plain answer**
+
+<details>
+<summary>OpenAI</summary>
+
+```json
+{
+  "text": "ok",
+  "data": null,
+  "data_error": null,
+  "provider": "openai",
+  "requested_model": "gpt-5.6-terra",
+  "model": "gpt-5.6-terra",
+  "finish_reason": "complete",
+  "raw_finish_reason": "stop",
+  "refusal": null,
+  "usage": {
+    "input_tokens": 18,
+    "output_tokens": 4,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": 0,
+    "stop_reason": "stop",
+    "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 1,
+  "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [],
+  "latency": 1.045
+}
+```
+
+</details>
+
+<details>
+<summary>Anthropic</summary>
+
+```json
+{
+  "text": "ok",
+  "data": null,
+  "data_error": null,
+  "provider": "anthropic",
+  "requested_model": "claude-sonnet-5-5",
+  "model": "claude-sonnet-5-5",
+  "finish_reason": "complete",
+  "raw_finish_reason": "end_turn",
+  "refusal": null,
+  "usage": {
+    "input_tokens": 23,
+    "output_tokens": 4,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": null,
+    "stop_reason": "end_turn",
+    "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 1,
+  "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [],
+  "latency": 1.179
+}
+```
+
+</details>
+
+**A structured answer** (the agent declares a `response_schema`; `text` is the JSON, `data` is it parsed)
+
+<details>
+<summary>OpenAI</summary>
+
+```json
+{
+  "text": "{\"answer\":\"ok\"}",
+  "data": {
+    "answer": "ok"
+  },
+  "data_error": null,
+  "provider": "openai",
+  "requested_model": "gpt-5.6-terra",
+  "model": "gpt-5.6-terra",
+  "finish_reason": "complete",
+  "raw_finish_reason": "stop",
+  "refusal": null,
+  "usage": {
+    "input_tokens": 46,
+    "output_tokens": 12,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": 0,
+    "stop_reason": "stop",
+    "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 1,
+  "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [],
+  "latency": 0.811
+}
+```
+
+</details>
+
+<details>
+<summary>Anthropic</summary>
+
+```json
+{
+  "text": "{\"answer\":\"ok\"}",
+  "data": {
+    "answer": "ok"
+  },
+  "data_error": null,
+  "provider": "anthropic",
+  "requested_model": "claude-sonnet-5-5",
+  "model": "claude-sonnet-5-5",
+  "finish_reason": "complete",
+  "raw_finish_reason": "end_turn",
+  "refusal": null,
+  "usage": {
+    "input_tokens": 209,
+    "output_tokens": 12,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": null,
+    "stop_reason": "end_turn",
+    "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 1,
+  "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [],
+  "latency": 1.639
+}
+```
+
+</details>
+
+**A truncated answer** (a 20-token limit). Both providers return `finish_reason: "truncated"` and an *empty* `text`,
+because the limit was spent on hidden thinking. On OpenAI that is visible in `usage.reasoning_tokens`.
+
+<details>
+<summary>OpenAI</summary>
+
+```json
+{
+  "text": "1,2",
+  "data": null,
+  "data_error": null,
+  "provider": "openai",
+  "requested_model": "gpt-5.6-terra",
+  "model": "gpt-5.6-terra",
+  "finish_reason": "truncated",
+  "raw_finish_reason": "length",
+  "refusal": null,
+  "usage": {
+    "input_tokens": 30,
+    "output_tokens": 20,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": 7,
+    "stop_reason": "length",
+    "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 1,
+  "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [],
+  "latency": 1.463
+}
+```
+
+</details>
+
+<details>
+<summary>Anthropic</summary>
+
+```json
+{
+  "text": "",
+  "data": null,
+  "data_error": null,
+  "provider": "anthropic",
+  "requested_model": "claude-sonnet-5-5",
+  "model": "claude-sonnet-5-5",
+  "finish_reason": "truncated",
+  "raw_finish_reason": "max_tokens",
+  "refusal": null,
+  "usage": {
+    "input_tokens": 39,
+    "output_tokens": 20,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": null,
+    "stop_reason": "max_tokens",
+    "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 1,
+  "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [],
+  "latency": 1.674
+}
+```
+
+</details>
+
+**Illustrative only** (not captured from a live call): a refusal, and a run where a tool was used.
+
+<details>
+<summary>A refusal</summary>
+
+```json
+{
+  "text": "",
+  "data": null,
+  "data_error": null,
+  "provider": "openai",
+  "requested_model": "gpt-5.6-terra",
+  "model": "gpt-5.6-terra",
+  "finish_reason": "refused",
+  "raw_finish_reason": "stop",
+  "refusal": "I can't help with that.",
+  "usage": {
+    "input_tokens": 18,
+    "output_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": 0,
+    "stop_reason": "stop",
+    "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 1,
+  "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [],
+  "latency": 1.045
+}
+```
+
+</details>
+
+<details>
+<summary>A tool loop (two turns, usage summed)</summary>
+
+```json
+{
+  "text": "It costs $19.",
+  "data": null,
+  "data_error": null,
+  "provider": "anthropic",
+  "requested_model": "claude-sonnet-5-5",
+  "model": "claude-sonnet-5-5",
+  "finish_reason": "complete",
+  "raw_finish_reason": "end_turn",
+  "refusal": null,
+  "usage": {
+    "input_tokens": 260,
+    "output_tokens": 31,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "reasoning_tokens": null,
+    "stop_reason": "end_turn",
+    "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+  },
+  "turns": 2,
+  "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+  "tool_calls": [
+    {
+      "id": "toolu_01XXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "price_check",
+      "result": "{\"price\":\"$19\"}"
+    }
+  ],
+  "latency": 1.179
+}
+```
+
+</details>
+
+### What to rely on
+
+- **Always check `finish_reason` before using `text` or `data`.** An empty `text` with `"truncated"` is the model telling
+  you the limit was too low, not a bug.
+- **`data` is only there for a finished answer.** For `"truncated"` or `"refused"` it is `null` and `data_error` is `null`
+  too: the finish reason is the explanation.
+- **The shape never changes between providers; the values can.** Code against the fields above, not against a provider's
+  own words. When you do need the provider's word, it is in `raw_finish_reason`.
+- **Treat `usage`, `model`, and `request_id` as possibly null** if you support custom providers.
+
 ## A truncated or refused answer is a response, not an exception
 
 The model did answer; what to do about it is the app's call. `ProviderError` is for failing to get an answer at all

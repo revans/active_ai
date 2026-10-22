@@ -34,31 +34,16 @@ Scaffolds a provider-comparison harness, so every app answers "which model is be
 
 ```bash
 rails generate active_ai:evaluation
-# creates app/ai/evaluation.rb
-# creates app/ai/evaluation/cases.yml        (your scenarios: an agent, a message, and the checks the answer must pass)
-# creates app/ai/evaluation/case.rb          (asks one provider; a provider failure becomes a failed result)
-# creates app/ai/evaluation/checks.rb        (generic checks: finished, structured, max_seconds, contains, ...; add your own)
-# creates app/ai/evaluation/result.rb
-# creates app/ai/evaluation/comparison.rb    (providers x cases x runs; plans before it spends)
-# creates app/ai/evaluation/report.rb        (scorecard, and a blind transcript with a separate key)
+# creates app/ai/evaluation.rb and app/ai/evaluation/{cases.yml,case.rb,checks.rb,result.rb,comparison.rb,report.rb}
 # creates lib/tasks/ai_evaluation.rake
 # creates test/ai/evaluation/evaluation_test.rb
+
+bin/rails ai:compare          # plan only: sends nothing
+RUN=1 bin/rails ai:compare    # real calls (costs money); writes a blind transcript, a key, and results.json
 ```
 
-```bash
-bin/rails ai:compare              # plan only: lists what would run, which keys are missing; sends nothing
-RUN=1 bin/rails ai:compare        # makes the real calls (costs money); writes tmp/ai_comparison/<time>/
-RUN=1 RUNS=4 CASES=smoke_test PROVIDERS=openai OPENAI_MODEL=... bin/rails ai:compare
-```
-
-Each run writes `report.md` (a **blind** transcript: Model A / B, so read it before knowing who wrote what), `key.json`
-(which letter is which provider), and `results.json` (every answer and score, unblinded).
-
-The generated code is yours to change: add the checks that matter to your product to `checks.rb`, and override
-`Case#build_agent` when your agents need more than a message (a record, a user, history). If your agents write
-records, wrap `Case#ask` in a transaction you always roll back. The checks are rough by design: a pass means "nothing
-obviously wrong", never "good", and the blind transcript is where tone and usefulness get judged. Re-running the
-generator asks before overwriting a file you edited.
+The generated code is yours to change; re-running asks before overwriting a file you edited. The full guide, covering cases,
+checks, options, reading the results, and customizing, is in **[evaluation.md](evaluation.md)**.
 
 ---
 
