@@ -1,0 +1,16 @@
+{
+  "provider": "openai",
+  "scenario": "unknown_model_stream",
+  "status": 404,
+  "body": {
+    "error": {
+      "message": "The model `no-such-model-contract-test` does not exist or you do not have access to it.",
+      "type": "invalid_request_error",
+      "param": null,
+      "code": "model_not_found"
+    }
+  },
+  "sdk_message": "the server responded with status 404 for POST https://api.openai.com/v1/chat/completions",
+  "expect_contains": "no-such-model-contract-test",
+  "recorded_on": "2026-10-22"
+}

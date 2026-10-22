@@ -266,3 +266,26 @@ test:
 ```
 
 Since `stub_ai_response` bypasses the provider entirely, the model name in the test environment only matters for tests that intentionally make real API calls (integration tests, acceptance tests). Keep those in a separate file or tag them so they can be skipped in CI.
+
+---
+
+## Running this gem's own tests
+
+```bash
+bundle exec rake test        # offline: no network, no keys; leaves the repo untouched
+bundle exec rake test:live   # contract tests against the real APIs (opt-in)
+```
+
+`test:live` runs one contract against OpenAI and Anthropic: model discovery, a completion, streaming, structured
+output, `provider_options`, and the error shapes (unknown model, malformed request, bad key; blocking and streaming).
+It needs `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, costs a few cents, and skips a provider whose key or model is missing.
+Models default to cheap ones; override with `ACTIVE_AI_LIVE_OPENAI_MODEL` / `ACTIVE_AI_LIVE_ANTHROPIC_MODEL`.
+
+Why it exists: stubbed SDK clients only confirm what we already believe. Two bugs passed hundreds of green offline
+tests, because OpenAI had stopped accepting `max_tokens` and, while streaming, the SDK returns an error body cut off
+mid-object. Both only appear on the real wire.
+
+`ACTIVE_AI_RECORD=1 bundle exec rake test:live` also rewrites `test/fixtures/provider_errors/*.json` from the real
+error responses. The offline suite replays them (`recorded_errors_test.rb`), so what a provider really sends keeps
+being tested without network access. Re-record when a provider changes its error format, and look at the files
+before committing them.

@@ -1,0 +1,16 @@
+{
+  "provider": "openai",
+  "scenario": "bad_parameter_call",
+  "status": 400,
+  "body": {
+    "error": {
+      "message": "Unknown parameter: 'definitely_not_a_param'.",
+      "type": "invalid_request_error",
+      "param": "definitely_not_a_param",
+      "code": "unknown_parameter"
+    }
+  },
+  "sdk_message": "the server responded with status 400 for POST https://api.openai.com/v1/chat/completions",
+  "expect_contains": "definitely_not_a_param",
+  "recorded_on": "2026-10-22"
+}

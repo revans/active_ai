@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "scenario": "unknown_model_call",
+  "status": 404,
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "not_found_error",
+      "message": "model: no-such-model-contract-test"
+    },
+    "request_id": "req_011CgHn4pE7AFx14Lbq8AH7E"
+  },
+  "sdk_message": "{url: \"https://api.anthropic.com/v1/messages\", status: 404, body: {type: \"error\", error: {type: \"not_found_error\", message: \"model: no-such-model-contract-test\"}, request_id: \"req_011CgHn4pE7AFx14Lbq8AH7E\"}}",
+  "expect_contains": "no-such-model-contract-test",
+  "recorded_on": "2026-10-22"
+}

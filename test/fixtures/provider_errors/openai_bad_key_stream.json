@@ -1,0 +1,9 @@
+{
+  "provider": "openai",
+  "scenario": "bad_key_stream",
+  "status": 401,
+  "body": "{\n  \"error\": {\n    \"message\": \"Incorrect AP",
+  "sdk_message": "the server responded with status 401 for POST https://api.openai.com/v1/chat/completions",
+  "expect_contains": null,
+  "recorded_on": "2026-10-22"
+}

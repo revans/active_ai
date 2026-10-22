@@ -1,0 +1,9 @@
+{
+  "provider": "openai",
+  "scenario": "bad_key_call",
+  "status": 401,
+  "body": "{\n  \"error\": {\n    \"message\": \"Incorrect API key provided: sk-inval*****************************cdef. You can find your API key at https://platform.openai.com/account/api-keys.\",\n    \"type\": \"invalid_request_error\",\n    \"code\": \"invalid_api_key\",\n    \"param\": null\n  },\n  \"status\": 401\n}",
+  "sdk_message": "the server responded with status 401 for POST https://api.openai.com/v1/chat/completions",
+  "expect_contains": null,
+  "recorded_on": "2026-10-22"
+}

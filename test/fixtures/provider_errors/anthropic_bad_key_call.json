@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "scenario": "bad_key_call",
+  "status": 401,
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "authentication_error",
+      "message": "invalid x-api-key"
+    },
+    "request_id": "req_011CgHn56a8EmWq6EcK5MzLP"
+  },
+  "sdk_message": "{url: \"https://api.anthropic.com/v1/messages\", status: 401, body: {type: \"error\", error: {type: \"authentication_error\", message: \"invalid x-api-key\"}, request_id: \"req_011CgHn56a8EmWq6EcK5MzLP\"}}",
+  "expect_contains": null,
+  "recorded_on": "2026-10-22"
+}

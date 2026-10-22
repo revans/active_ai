@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "scenario": "bad_parameter_stream",
+  "status": 400,
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "definitely_not_a_param: Extra inputs are not permitted"
+    },
+    "request_id": "req_011CgHn4i33FCXKVF92ZJr8F"
+  },
+  "sdk_message": "{url: \"https://api.anthropic.com/v1/messages\", status: 400, body: {type: \"error\", error: {type: \"invalid_request_error\", message: \"definitely_not_a_param: Extra inputs are not permitted\"}, request_id: \"req_011CgHn4i33FCXKVF92ZJr8F\"}}",
+  "expect_contains": "definitely_not_a_param",
+  "recorded_on": "2026-10-22"
+}
