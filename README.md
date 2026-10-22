@@ -87,6 +87,7 @@ end
 | Configuration | `config/ai.yml`, `ActiveAI.configure`, API key chain | [docs/configuration.md](docs/configuration.md) |
 | Agents | Base class, DSL, agentic loop | [docs/agents.md](docs/agents.md) |
 | Skills | Behavioral instruction blocks | [docs/skills.md](docs/skills.md) |
+| Output limit | `max_tokens 700` or `max_tokens :unlimited` in an agent; one setting, each provider's own parameter | [docs/agents.md](docs/agents.md#max_tokens) |
 | Response envelope | `generate` returns one JSON shape for every provider: finish reason, served model, usage, latency | [docs/response.md](docs/response.md) |
 | Provider comparison | `rails g active_ai:evaluation` scaffolds `bin/rails ai:compare` | [docs/evaluation.md](docs/evaluation.md) |
 | Structured output | `response_schema` + `complete_structured`, `provider_options` | [docs/agents.md](docs/agents.md) |

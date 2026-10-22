@@ -8,7 +8,7 @@ module ActiveAI
     def initialize(provider:, model:, max_tokens: 8096)
       @provider   = provider.to_sym
       @model      = model
-      @max_tokens = max_tokens.to_i
+      @max_tokens = ActiveAI.token_limit(max_tokens)
     end
 
     # Returns the API key for the given provider.

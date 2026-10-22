@@ -48,6 +48,14 @@ module ProviderContract
     end
 
     LiveHelper.models_for(self::PROVIDER).each do |model|
+      test "max_tokens :unlimited is accepted and the model answers (#{model})" do
+        skip_unless_available!(model)
+        unlimited = Class.new(ApplicationAgent) { max_tokens :unlimited }
+        response = unlimited.new(system: "Reply with exactly one word: ok", message: "ping", provider: @provider_name, model: model).generate
+        assert response.complete?, "finish_reason was #{response.finish_reason.inspect} (provider said #{response.raw_finish_reason.inspect})"
+        assert_predicate response.text.strip, :present?
+      end
+
       test "generate reports who answered, which model served it, and why it stopped (#{model})" do
         skip_unless_available!(model)
         response = agent(model: model).generate
@@ -67,9 +75,9 @@ module ProviderContract
       end
     end
 
-    test "a truncated answer comes back as a response, not an error" do
-      subject = ApplicationAgent.new(system: "Follow instructions exactly.", message: "Count from 1 to 300, separated by commas, no other words.", provider: @provider_name, model: @model)
-      subject.define_singleton_method(:build_params) { super().merge(max_tokens: 20) }
+    test "a truncated answer comes back as a response, not an error (limit set with the max_tokens DSL)" do
+      capped = Class.new(ApplicationAgent) { max_tokens 20 }
+      subject = capped.new(system: "Follow instructions exactly.", message: "Count from 1 to 300, separated by commas, no other words.", provider: @provider_name, model: @model)
       response = subject.generate
       assert response.truncated?, "finish_reason was #{response.finish_reason.inspect} (provider said #{response.raw_finish_reason.inspect})"
       assert_includes %w[length max_tokens], response.raw_finish_reason

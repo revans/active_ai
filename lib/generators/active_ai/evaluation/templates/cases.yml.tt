@@ -9,6 +9,9 @@
 #            - { max_output_tokens: { tokens: 500 } }
 #            - { contains: { text: "refund" } }  # also: excludes, matches
 #
+# The agent's own `max_tokens` applies, so compare at the limits you will ship: a cap that suits one provider can truncate
+# another (the "cut off" row of the scorecard).
+#
 # Use real scenarios. A good set mixes ordinary cases, awkward ones, and the failures you would hate to ship.
 
 - id: smoke_test

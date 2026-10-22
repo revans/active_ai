@@ -148,7 +148,7 @@ module ActiveAI
       def build_canonical(prompt)
         {
           model:        resolved_model,
-          max_tokens:   (self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens),
+          max_tokens:   ActiveAI.token_limit(self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens),
           system:       self.class._system_prompt.to_s,
           skills:       [],
           source_files: [],

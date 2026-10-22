@@ -107,6 +107,35 @@ Provides a human-readable description of what the agent does. Required when regi
 description "Drafts, edits, and structures written content inside a document."
 ```
 
+### `max_tokens`
+
+How many tokens the model may write back: a positive Integer, or `:unlimited`. It is independent of the model, so
+switching providers stays a config change.
+
+```ruby
+class ChatAgent < ApplicationAgent
+  max_tokens 700          # a short chat reply
+end
+
+class ReportAgent < ApplicationAgent
+  max_tokens :unlimited   # no limit below what the model can do
+end
+```
+
+| Provider | Parameter | `:unlimited` |
+|---|---|---|
+| OpenAI | `max_completion_tokens` | Omitted: the model writes up to its own maximum. |
+| xAI | `max_tokens` | Omitted. |
+| Anthropic | `max_tokens` (required) | The model's own maximum output, read from Anthropic's models API (128000 for the Claude 5 family) and remembered per model; a conservative 32000 is used if the lookup fails. |
+
+Precedence: the agent's `max_tokens`, then `model "name", max_tokens: n` (still works), then `max_tokens` in `config/ai.yml`
+(which also accepts `unlimited`). `agent.resolved_max_tokens` returns what will be used. Anything else raises
+`ArgumentError` where it is declared.
+
+On a reasoning model the limit also pays for hidden thinking, so a tight cap can truncate an answer or leave it empty.
+That comes back as a `Response` with `finish_reason: :truncated`, not an error. See [response.md](response.md). Anthropic
+treats very large limits as requiring streaming; agents stream, so this only matters if you call a provider's `call` directly.
+
 ### `response_schema`
 
 Constrains the answer to JSON matching a JSON Schema, using each provider's own mechanism, and read it with

@@ -12,6 +12,8 @@ module ActiveAI
     #     cache :context,      ttl: "5m"
     #   end
     #
+    # The output limit can also be set on its own, independent of any model: `max_tokens 700` or `max_tokens :unlimited`.
+    #
     # Subclasses MUST implement `build_messages` — converting @history and @message
     # into the [{role:, content:}] array the provider expects.
     #
@@ -36,7 +38,7 @@ module ActiveAI
       end
 
       class_attribute :_provider_name, :_model_config, :_cache_config, :_tools, :_system_prompt, :_skills
-      class_attribute :_response_schema, :_provider_options
+      class_attribute :_response_schema, :_provider_options, :_max_tokens
       class_attribute :provider_model_defaults, default: {}
       self._cache_config = {}
       self._tools        = []
@@ -50,7 +52,20 @@ module ActiveAI
       end
 
       def self.model(name_or_callable, max_tokens: nil)
-        self._model_config = { name: name_or_callable, max_tokens: max_tokens }
+        self._model_config = { name: name_or_callable, max_tokens: max_tokens && ActiveAI.token_limit(max_tokens) }
+      end
+
+      # How many tokens the model may write back: a positive Integer, or :unlimited. Independent of the model, so
+      # switching providers stays a config change.
+      #
+      #   max_tokens 700          # a short chat reply
+      #   max_tokens :unlimited   # no limit below what the model can do
+      #
+      # :unlimited omits the limit on OpenAI and xAI; Anthropic requires one, so the model's own maximum output is sent.
+      # On a reasoning model the limit also pays for hidden thinking, so a tight cap can truncate or empty an answer
+      # (see Response#truncated?). Precedence: this, then `model ..., max_tokens:`, then max_tokens in config/ai.yml.
+      def self.max_tokens(limit)
+        self._max_tokens = ActiveAI.token_limit(limit)
       end
 
       def self.system_prompt(text)
@@ -151,6 +166,11 @@ module ActiveAI
         provider_default = self.class.provider_model_defaults[resolved_provider]
         return provider_default if provider_default.present?
         ActiveAI.config.model
+      end
+
+      # The output-token limit for this call: an Integer or :unlimited.
+      def resolved_max_tokens
+        self.class._max_tokens || self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens
       end
 
       # Returns the resolved provider name symbol.
@@ -308,7 +328,7 @@ module ActiveAI
         validate_history!
         params = {
           model:        resolved_model,
-          max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
+          max_tokens:   resolved_max_tokens,
           system:       build_system_prompt,
           skills:       self.class._skills.map { |s| s.respond_to?(:to_definition) ? s.to_definition(skill_context) : s } +
                         Array(@skills).map { |s| per_call_skill(s) },

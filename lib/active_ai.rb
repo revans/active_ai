@@ -23,6 +23,7 @@ end
 require "active_ai/version"
 require "active_ai/errors"
 require "active_ai/response"
+require "active_ai/token_limit"
 require "active_ai/configuration"
 require "active_ai/concerns/describable"
 require "active_ai/instrumentation"

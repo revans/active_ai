@@ -409,6 +409,9 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
 
 ### What to rely on
 
+- **A cut-off answer means the output limit was too low.** Raise it with the agent's [`max_tokens`](agents.md#max_tokens)
+  (or `max_tokens :unlimited`). On a reasoning model the limit also pays for hidden thinking, so a cap that fits a plain
+  model can truncate a reasoning one: size it with `finish_reason` in front of you, not by guessing.
 - **Always check `finish_reason` before using `text` or `data`.** An empty `text` with `"truncated"` is the model telling
   you the limit was too low, not a bug.
 - **`data` is only there for a finished answer.** For `"truncated"` or `"refused"` it is `null` and `data_error` is `null`

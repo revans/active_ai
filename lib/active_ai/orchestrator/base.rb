@@ -144,7 +144,7 @@ module ActiveAI
       def build_params
         {
           model:        resolved_model,
-          max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
+          max_tokens:   ActiveAI.token_limit(self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens),
           system:       resolved_system_prompt,
           skills:       self.class._skills.map { |skill| skill.respond_to?(:to_definition) ? skill.to_definition : skill },
           source_files: [],

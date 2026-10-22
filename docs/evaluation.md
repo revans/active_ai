@@ -176,7 +176,8 @@ The terminal prints a scorecard:
   the check, then compare. Do this for both providers; scrutinise the side you favour just as hard.
 - **Passes can be wrong too.** A check only catches what it looks for. Skim the answers that passed.
 - **Truncation shows up.** "Cut off" counts answers that hit the token limit. On reasoning models the limit can be spent
-  on hidden thinking, leaving an empty answer, which is a real finding, not noise.
+  on hidden thinking, leaving an empty answer, which is a real finding, not noise. Compare providers at the limits you
+  will actually ship: an agent's [`max_tokens`](agents.md#max_tokens) can suit one provider and truncate another.
 
 ---
 

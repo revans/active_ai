@@ -52,7 +52,8 @@ API key resolution: `api_key_resolver` → `Rails.application.credentials.active
 
 **Output limit:** the agent's `max_tokens` is sent as `max_completion_tokens`, which current OpenAI models require
 (they reject `max_tokens`) and which also counts any reasoning tokens. xAI still takes `max_tokens` and overrides
-`OUTPUT_LIMIT_PARAMETER` to keep it; a provider inheriting from `Provider::OpenAI` can do the same.
+`OUTPUT_LIMIT_PARAMETER` to keep it; a provider inheriting from `Provider::OpenAI` can do the same. `:unlimited`
+sends no limit parameter at all. See [`max_tokens`](agents.md#max_tokens).
 
 **Caching:** OpenAI does not support per-block caching. The system prompt, skills, and source files are combined into a single system message. OpenAI's own automatic prompt caching applies to repeated prefixes, but this is transparent to the application.
 

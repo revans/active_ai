@@ -135,7 +135,9 @@ module ActiveAI
           model:    canonical[:model],
           messages: messages
         }
-        params[self.class::OUTPUT_LIMIT_PARAMETER] = canonical[:max_tokens] unless canonical[:max_tokens].nil?
+        # No limit, or :unlimited, sends no limit parameter: the model writes up to its own maximum.
+        limit = canonical[:max_tokens]
+        params[self.class::OUTPUT_LIMIT_PARAMETER] = limit unless limit.nil? || limit == ActiveAI::UNLIMITED
 
         # Convert Anthropic-format tool definitions to OpenAI format.
         # Anthropic uses `input_schema:`; OpenAI wraps each tool in

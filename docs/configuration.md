@@ -33,7 +33,7 @@ production:
 |---|---|---|
 | `provider` | string | Default provider: `anthropic`, `openai`, `xai`, or a custom name |
 | `model` | string | Default model name for the provider |
-| `max_tokens` | integer | Default max output tokens (default: 8096) |
+| `max_tokens` | integer or `unlimited` | Default max output tokens (default: 8096). `unlimited` means no limit below what the model can do; see [`max_tokens`](agents.md#max_tokens). |
 
 These are the lowest-priority defaults. Any class-level `provider`, `model`, or `max_tokens` declaration overrides them. Runtime kwargs on `new(provider:, model:)` override those.
 

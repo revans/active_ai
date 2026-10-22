@@ -93,7 +93,7 @@ module ActiveAI
       def build_anthropic_params(canonical)
         params = {
           model:      canonical[:model],
-          max_tokens: canonical[:max_tokens],
+          max_tokens: output_limit_for(canonical[:max_tokens], canonical[:model]),
           system:     build_system_blocks(canonical),
           messages:   build_messages_with_cache(canonical)
         }
@@ -236,6 +236,23 @@ module ActiveAI
           stop_reason:           safe_field(response, :stop_reason),
           provider_request_id:   safe_field(response, :id)
         }
+      end
+
+      FALLBACK_MAX_OUTPUT_TOKENS = 32_000
+      MAX_OUTPUT_TOKENS = Concurrent::Map.new
+
+      # Anthropic requires max_tokens. :unlimited sends the model's own maximum output, which its models API reports
+      # (128000 for the Claude 5 family). Looked up once per model per process; if the lookup fails, a conservative
+      # fallback is used instead of failing the request.
+      def output_limit_for(limit, model)
+        return limit unless limit == ActiveAI::UNLIMITED
+
+        MAX_OUTPUT_TOKENS[model.to_s] || begin
+          reported = client.models.retrieve(model.to_s).max_tokens.to_i
+          reported.positive? ? (MAX_OUTPUT_TOKENS[model.to_s] = reported) : FALLBACK_MAX_OUTPUT_TOKENS
+        rescue StandardError
+          FALLBACK_MAX_OUTPUT_TOKENS # not cached: the next call tries the lookup again
+        end
       end
 
       # The model that actually served the request and why it stopped, as Anthropic reported them.
