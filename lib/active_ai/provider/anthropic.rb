@@ -58,7 +58,7 @@ module ActiveAI
         @last_assistant_content = []
         response.content.first.text
       rescue ::Anthropic::Errors::Error => provider_error
-        raise ActiveAI::ProviderError.new("Anthropic: #{provider_error.message}", cause: provider_error)
+        raise provider_error_from(provider_error)
       end
 
       def stream(canonical, &block)
@@ -73,7 +73,7 @@ module ActiveAI
         @last_tool_calls        = extract_tool_calls(accumulated_message)
         @last_assistant_content = extract_assistant_content(accumulated_message)
       rescue ::Anthropic::Errors::Error => provider_error
-        raise ActiveAI::ProviderError.new("Anthropic: #{provider_error.message}", cause: provider_error)
+        raise provider_error_from(provider_error)
       end
 
       private

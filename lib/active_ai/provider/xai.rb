@@ -32,10 +32,8 @@ module ActiveAI
         client.chat(parameters: params)
         @last_usage = normalize_usage(accumulator)
         finalize_tool_calls(accumulator)
-      rescue ::OpenAI::Error => openai_error
-        raise ActiveAI::ProviderError.new("xAI: #{openai_error.message}", cause: openai_error)
-      rescue Faraday::Error => faraday_error
-        raise ActiveAI::ProviderError.new("Network error: #{faraday_error.message}", cause: faraday_error)
+      rescue ::OpenAI::Error, Faraday::Error => provider_error
+        raise provider_error_from(provider_error)
       end
 
       private

@@ -98,8 +98,9 @@ module ActiveAI
 
       def stream_error_message(error)
         if error.is_a?(ActiveAI::ProviderError)
-          # Extract the inner API message from the provider error body
-          error.message.match(/message: "([^"]+)"/)&.captures&.first ||
+          # The provider's own explanation, already cleaned, then older message formats, then a generic line.
+          error.provider_message.presence ||
+            error.message.match(/message: "([^"]+)"/)&.captures&.first ||
             error.message.match(/"message":\s*"([^"]+)"/)&.captures&.first ||
             "Provider error. Please try again."
         else

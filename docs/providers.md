@@ -152,3 +152,31 @@ After registration, `provider :gemini` works in any agent class.
 | `format_tool_result_messages(tool_results)` | No | Formats tool results as messages to append to history. **Must override if your provider expects a different structure.** Default bundles all results in one `role: "user"` message (Anthropic). OpenAI requires one `role: "tool"` message per result. |
 
 `format_assistant_turn` and `format_tool_result_messages` are only called during the agentic loop (when the model returns tool calls). If your custom provider doesn't support tools, you can skip them. If it does, wrong formats here cause silent 400 errors from the provider API — override both to match your provider's wire format.
+
+---
+
+## Provider errors
+
+Every failure from a provider SDK is raised as `ActiveAI::ProviderError`, and it says what the provider said:
+
+```ruby
+rescue ActiveAI::ProviderError => error
+  error.message           # => "OpenAI: HTTP 400: Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."
+  error.status            # => 400    (nil when no HTTP response came back: timeout, refused connection)
+  error.provider_message  # => "Unsupported parameter: ..."   the provider's own text, cleaned
+  error.type              # => "invalid_request_error"        when the provider sent them
+  error.code              # => "unsupported_parameter"
+  error.param             # => "max_tokens"
+  error.retryable?        # => false  (true for network failures, 429 and 5xx)
+  error.cause             # the original SDK exception
+end
+```
+
+- A failure with no HTTP response is labelled `Network error:`; `error.network?` is true.
+- While streaming, the SDK delivers an error body in pieces and the exception keeps only the first part, so the JSON
+  can be cut off mid-object. Fields that arrived whole are still read; one cut off mid-value is not half-reported.
+- If the body has no usable explanation, the SDK's own message is used. The message is never reduced to a bare status.
+- What is read: the status and the error body, nothing else. Request headers and the request body (your key and
+  your prompt) are never read. Anything shaped like an API key in the provider's text is replaced with `[redacted]`,
+  control characters are flattened, and the message is capped at `Provider::Base::MAX_PROVIDER_MESSAGE` characters.
+- `Concerns::Streamable` sends `provider_message` to the browser when there is one.

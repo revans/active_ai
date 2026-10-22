@@ -51,10 +51,8 @@ module ActiveAI
         response    = client.chat(parameters: build_params(canonical))
         @last_usage = extract_usage_from_response(response)
         response.dig("choices", 0, "message", "content")
-      rescue ::OpenAI::Error => openai_error
-        raise ActiveAI::ProviderError.new("OpenAI: #{openai_error.message}", cause: openai_error)
-      rescue Faraday::Error => faraday_error
-        raise ActiveAI::ProviderError.new("Network error: #{faraday_error.message}", cause: faraday_error)
+      rescue ::OpenAI::Error, Faraday::Error => provider_error
+        raise provider_error_from(provider_error)
       end
 
       def stream(canonical, &block)
@@ -70,10 +68,8 @@ module ActiveAI
         client.chat(parameters: params)
         @last_usage = normalize_usage(accumulator)
         finalize_tool_calls(accumulator)
-      rescue ::OpenAI::Error => openai_error
-        raise ActiveAI::ProviderError.new("OpenAI: #{openai_error.message}", cause: openai_error)
-      rescue Faraday::Error => faraday_error
-        raise ActiveAI::ProviderError.new("Network error: #{faraday_error.message}", cause: faraday_error)
+      rescue ::OpenAI::Error, Faraday::Error => provider_error
+        raise provider_error_from(provider_error)
       end
 
       # Formats the OpenAI assistant turn for the agentic loop history.
