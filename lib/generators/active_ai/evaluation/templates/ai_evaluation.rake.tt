@@ -1,0 +1,29 @@
+namespace :ai do
+  desc "Compare AI providers on app/ai/evaluation/cases.yml. Plans only unless RUN=1 (real calls cost money). " \
+       "Options: PROVIDERS=openai,anthropic  RUNS=2  CASES=smoke_test  OPENAI_MODEL=...  ANTHROPIC_MODEL=..."
+  task compare: :environment do
+    cases = Evaluation::Case.all
+    cases = cases.select { |evaluation_case| ENV["CASES"].split(",").include?(evaluation_case.id) } if ENV["CASES"]
+    comparison = Evaluation::Comparison.new(providers: ENV.fetch("PROVIDERS", Evaluation::PROVIDERS.join(",")).split(",").map(&:strip),
+                                            cases: cases, runs: ENV.fetch("RUNS", 2).to_i)
+    puts comparison.plan
+
+    if ENV["RUN"] != "1"
+      puts "\nNothing was sent. Re-run with RUN=1 to make these calls."
+      next
+    end
+
+    if comparison.missing_keys.any?
+      abort "\nNot running: no API key for #{comparison.missing_keys.join(", ")}. " \
+            "Add active_ai.<provider>_api_key with `bin/rails credentials:edit`, or limit PROVIDERS=."
+    end
+
+    puts
+    report = comparison.compare do |result|
+      puts "  #{result.evaluation_case.id} · #{result.provider} run #{result.run_number}: " \
+           "#{result.answered? ? "#{result.passed_count}/#{result.total_count} checks" : "no answer (#{result.failure.class.name})"}"
+    end
+    directory = report.write(Rails.root.join("tmp/ai_comparison", Time.current.strftime("%Y%m%d-%H%M%S")))
+    puts "\n#{report.scorecard}\nBlind transcript: #{directory}/report.md   (open key.json only after reading it)"
+  end
+end

@@ -1,0 +1,49 @@
+# What one provider did on one case, and how that scored.
+class Evaluation::Result
+  include Evaluation::Checks
+
+  Outcome = Data.define(:passed, :detail)
+
+  attr_reader :evaluation_case, :provider, :response, :failure
+  attr_accessor :run_number
+
+  def initialize(evaluation_case:, provider:, response: nil, failure: nil)
+    @evaluation_case, @provider, @response, @failure = evaluation_case, provider, response, failure
+  end
+
+  def answered? = failure.nil?
+  def model = response&.model || response&.requested_model
+  def seconds = response&.latency
+  def tokens = [ response&.usage&.dig(:input_tokens).to_i, response&.usage&.dig(:output_tokens).to_i ]
+
+  def outcomes
+    @outcomes ||= evaluation_case.checks.to_h do |specification|
+      name, parameters = specification.is_a?(Hash) ? specification.first : [ specification, {} ]
+      [ name.to_s, outcome_for(name.to_s, parameters.to_h) ]
+    end
+  end
+
+  def passed_count = outcomes.values.count(&:passed)
+  def total_count = outcomes.size
+
+  # The answer as a person would read it, for the blind transcript.
+  def readable_answer
+    return "(no answer: #{failure.message.truncate(160)})" if failure
+
+    "#{response.text.presence || "(empty)"}\n(finish_reason: #{response.finish_reason})"
+  end
+
+  def as_json(*)
+    { case: evaluation_case.id, provider: provider, model: model, run: run_number, seconds: seconds&.round(2), tokens: tokens,
+      finish_reason: response&.finish_reason, failure: failure&.message, text: response&.text,
+      outcomes: outcomes.transform_values { |outcome| outcome.to_h } }
+  end
+
+  private
+
+  def outcome_for(name, parameters)
+    return Outcome.new(passed: false, detail: "no answer: #{failure.message.truncate(100)}") if failure
+
+    public_send("check_#{name}", **parameters)
+  end
+end

@@ -314,3 +314,11 @@ mid-object. Both only appear on the real wire.
 error responses. The offline suite replays them (`recorded_errors_test.rb`), so what a provider really sends keeps
 being tested without network access. Re-record when a provider changes its error format, and look at the files
 before committing them.
+
+---
+
+## Comparing providers in your own app
+
+`rails generate active_ai:evaluation` scaffolds a harness (`bin/rails ai:compare`) that runs your own scenarios through
+each provider and scores them with checks, with a blind transcript for the judgement a check cannot make. See
+[generators.md](generators.md#active_aievaluation). Its generated test uses `build_ai_response` above, so it needs no keys.

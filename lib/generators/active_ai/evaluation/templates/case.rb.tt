@@ -1,0 +1,34 @@
+# One scenario: which agent answers which message, and which checks the answer must pass.
+class Evaluation::Case
+  PATH = Rails.root.join("app/ai/evaluation/cases.yml")
+
+  attr_reader :id, :title, :agent, :message, :checks
+
+  def self.all(path = PATH) = YAML.safe_load_file(path, symbolize_names: true).map { |attributes| new(**attributes) }
+
+  def initialize(id:, title:, agent:, message:, checks:)
+    @id, @title, @agent, @message, @checks = id, title, agent, message, checks
+  end
+
+  # Asks one provider to answer this scenario. A provider failure (bad key, outage) becomes a Result with
+  # `failure` set, so one bad call does not stop the comparison.
+  #
+  # If your agents write records, wrap the call in a transaction you always roll back, so a comparison leaves nothing behind:
+  #
+  #   ActiveRecord::Base.transaction do
+  #     result = ...
+  #     raise ActiveRecord::Rollback
+  #   end
+  def ask(provider:, model: nil)
+    Evaluation::Result.new(evaluation_case: self, provider: provider, response: build_agent(provider, model).generate)
+  rescue ActiveAI::Error, Timeout::Error => failure
+    Evaluation::Result.new(evaluation_case: self, provider: provider, failure: failure)
+  end
+
+  private
+
+  # Change this when your agents need more than a message: a record, a user, conversation history.
+  def build_agent(provider, model)
+    agent.constantize.new(message: message, provider: provider.to_sym, model: model)
+  end
+end

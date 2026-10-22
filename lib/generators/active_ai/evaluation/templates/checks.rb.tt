@@ -1,0 +1,47 @@
+# Checks a Result can apply to the model's answer. Each `check_*` method returns an outcome: passed, plus what it found.
+# These work on any app. Add your product's own below; they are word-list heuristics at best, so a pass
+# means "nothing obviously wrong", never "good". Read the blind transcript for the rest.
+module Evaluation::Checks
+  # Did the model finish, as opposed to being cut off at the token limit or refusing?
+  def check_finished
+    outcome response.complete?, "finish_reason #{response.finish_reason.inspect} (provider said #{response.raw_finish_reason.inspect})"
+  end
+
+  # Did the agent's response_schema produce an object?
+  def check_structured
+    outcome response.data.present?, response.data.present? ? "got a structured answer" : (response.data_error || "no structured data (finish_reason #{response.finish_reason.inspect})")
+  end
+
+  def check_max_seconds(seconds:)
+    outcome response.latency <= seconds, "#{response.latency}s (limit #{seconds}s)"
+  end
+
+  def check_max_output_tokens(tokens:)
+    used = response.usage&.dig(:output_tokens).to_i
+    outcome used <= tokens, "#{used} output tokens (limit #{tokens})"
+  end
+
+  def check_contains(text:)
+    outcome response.text.to_s.downcase.include?(text.downcase), "looking for #{text.inspect}"
+  end
+
+  def check_excludes(text:)
+    found = response.text.to_s.downcase.include?(text.downcase)
+    outcome !found, found ? "contains #{text.inspect}" : "does not contain #{text.inspect}"
+  end
+
+  def check_matches(pattern:)
+    match = response.text.to_s[Regexp.new(pattern, Regexp::IGNORECASE)]
+    outcome match, match ? "matched #{match.inspect}" : "no match for /#{pattern}/"
+  end
+
+  # Add your product's own checks here, for example:
+  #
+  #   def check_no_apology
+  #     outcome !response.text.to_s.match?(/\bsorry\b/i), "..."
+  #   end
+
+  private
+
+  def outcome(passed, detail) = Evaluation::Result::Outcome.new(passed: !!passed, detail: detail)
+end

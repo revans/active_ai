@@ -1,0 +1,37 @@
+require "test_helper"
+
+# Keeps the evaluation harness honest without calling any provider.
+class EvaluationHarnessTest < ActiveSupport::TestCase
+  include ActiveAI::TestHelper
+
+  def a_case = Evaluation::Case.all.first
+
+  test "every case names an agent that exists and checks that exist" do
+    Evaluation::Case.all.each do |evaluation_case|
+      assert evaluation_case.agent.safe_constantize, "#{evaluation_case.id}: no agent class #{evaluation_case.agent}"
+      evaluation_case.checks.each do |specification|
+        name = specification.is_a?(Hash) ? specification.keys.first : specification
+        assert Evaluation::Checks.method_defined?("check_#{name}"), "#{evaluation_case.id}: no check named #{name}"
+      end
+    end
+  end
+
+  test "planning sends nothing" do
+    plan = Evaluation::Comparison.new.plan
+    assert_match "plan only, nothing sent", plan
+  end
+
+  test "a finished answer passes the generic checks, and a cut-off one is caught" do
+    good = Evaluation::Result.new(evaluation_case: a_case, provider: "openai", response: build_ai_response(text: "ok"))
+    assert_equal good.total_count, good.passed_count
+
+    cut_off = Evaluation::Result.new(evaluation_case: a_case, provider: "openai", response: build_ai_response(text: "o", finish_reason: :truncated))
+    assert_not cut_off.outcomes["finished"].passed
+  end
+
+  test "a provider failure counts every check as failed, with the reason" do
+    failed = Evaluation::Result.new(evaluation_case: a_case, provider: "openai", failure: ActiveAI::ProviderError.new("OpenAI: HTTP 401: bad key"))
+    assert_not failed.answered?
+    assert failed.outcomes.values.none?(&:passed)
+  end
+end

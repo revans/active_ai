@@ -1,0 +1,100 @@
+require "fileutils"
+
+# Scores from a comparison, plus a blind transcript so the part no check can judge (tone, usefulness) is read
+# without knowing which provider wrote what.
+class Evaluation::Report
+  attr_reader :results, :runs, :generated_at
+
+  def initialize(results:, runs:, generated_at: Time.current)
+    @results, @runs, @generated_at = results, runs, generated_at
+  end
+
+  def providers = results.map(&:provider).uniq
+
+  def scorecard
+    <<~CARD
+      AI provider comparison · #{generated_at.strftime("%Y-%m-%d %H:%M")} · #{cases.size} cases × #{runs} runs
+      Rough checks on a small sample. A gap of a few checks is noise; read the blind transcript before deciding.
+
+      #{table([ "" ] + providers, summary_rows)}
+
+      Checks passed, by case (passed/total across runs)
+      #{table([ "" ] + providers, case_rows)}
+
+      Checks that failed anywhere
+      #{failed_checks.presence || "  none"}
+    CARD
+  end
+
+  # results.json (everything, unblinded), key.json (which letter is which provider), report.md (the blind transcript).
+  def write(directory)
+    FileUtils.mkdir_p(directory)
+    labels = blind_labels
+    File.write(File.join(directory, "results.json"), JSON.pretty_generate(results.map(&:as_json)))
+    File.write(File.join(directory, "key.json"), JSON.pretty_generate(labels.invert))
+    File.write(File.join(directory, "report.md"), blind_transcript(labels))
+    directory
+  end
+
+  private
+
+  def cases = results.map(&:evaluation_case).uniq
+  def for_provider(provider) = results.select { |result| result.provider == provider }
+
+  def summary_rows
+    [
+      [ "checks passed" ] + providers.map { |provider| ratio(for_provider(provider).sum(&:passed_count), for_provider(provider).sum(&:total_count)) },
+      [ "no answer at all" ] + providers.map { |provider| for_provider(provider).count { |result| !result.answered? }.to_s },
+      [ "cut off (truncated)" ] + providers.map { |provider| for_provider(provider).count { |result| result.response&.truncated? }.to_s },
+      [ "median seconds" ] + providers.map { |provider| median(for_provider(provider).filter_map(&:seconds)) },
+      [ "tokens in / out" ] + providers.map { |provider| for_provider(provider).map(&:tokens).transpose.map(&:sum).join(" / ") }
+    ]
+  end
+
+  def case_rows
+    cases.map do |evaluation_case|
+      [ evaluation_case.id ] + providers.map do |provider|
+        mine = for_provider(provider).select { |result| result.evaluation_case == evaluation_case }
+        ratio(mine.sum(&:passed_count), mine.sum(&:total_count))
+      end
+    end
+  end
+
+  def failed_checks
+    rows = results.flat_map { |result| result.outcomes.map { |name, outcome| [ [ result.evaluation_case.id, name ], result.provider, outcome ] } }
+    rows.group_by(&:first).filter_map do |(case_id, name), group|
+      failures = group.reject { |_, _, outcome| outcome.passed }
+      next if failures.empty?
+
+      per_provider = providers.map { |provider| "#{provider} #{group.count { |_, who, outcome| who == provider && !outcome.passed }}/#{group.count { |_, who, _| who == provider }}" }
+      "  #{case_id} · #{name}: #{per_provider.join(", ")} failed (e.g. #{failures.first.last.detail})"
+    end.join("\n")
+  end
+
+  # Same letters for the whole report so an impression can form; the key is a separate file.
+  def blind_labels = providers.shuffle(random: Random.new(generated_at.to_i)).zip(%w[A B C D]).to_h
+
+  def blind_transcript(labels)
+    sections = results.group_by(&:evaluation_case).map do |evaluation_case, mine|
+      answers = mine.sort_by { |result| [ labels.fetch(result.provider), result.run_number.to_i ] }.map do |result|
+        "**Model #{labels.fetch(result.provider)}, run #{result.run_number}**\n\n#{result.readable_answer.gsub(/^/, "> ")}"
+      end
+      "## #{evaluation_case.title}\n\n> #{evaluation_case.message}\n\n#{answers.join("\n\n")}"
+    end
+    "# Blind comparison · #{generated_at.strftime("%Y-%m-%d %H:%M")}\n\nModels are labelled #{labels.values.join(", ")}; the key is in key.json. Read all of it before opening the key.\nAsk of each answer: is it right, useful, and what I would want to ship?\n\n#{sections.join("\n\n")}\n"
+  end
+
+  def ratio(passed, total) = total.zero? ? "-" : "#{passed}/#{total} (#{(100.0 * passed / total).round}%)"
+
+  def median(values)
+    return "-" if values.empty?
+
+    format("%.1f", values.sort[values.size / 2])
+  end
+
+  def table(header, rows)
+    all = [ header ] + rows
+    widths = all.transpose.map { |column| column.map { |cell| cell.to_s.size }.max }
+    all.map { |row| "  " + row.each_with_index.map { |cell, index| cell.to_s.ljust(widths[index]) }.join("   ").rstrip }.join("\n")
+  end
+end

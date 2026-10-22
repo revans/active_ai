@@ -88,6 +88,7 @@ end
 | Agents | Base class, DSL, agentic loop | [docs/agents.md](docs/agents.md) |
 | Skills | Behavioral instruction blocks | [docs/skills.md](docs/skills.md) |
 | Response envelope | `generate` returns one shape for every provider: finish reason, served model, usage, latency | [docs/response.md](docs/response.md) |
+| Provider comparison | `rails g active_ai:evaluation` scaffolds `bin/rails ai:compare` | [docs/generators.md](docs/generators.md#active_aievaluation) |
 | Structured output | `response_schema` + `complete_structured`, `provider_options` | [docs/agents.md](docs/agents.md) |
 | Tools | Custom executable functions | [docs/tools.md](docs/tools.md) |
 | Built-in Tools | WebSearch, WebPageReader | [docs/built-in-tools.md](docs/built-in-tools.md) |

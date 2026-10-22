@@ -1,0 +1,21 @@
+# Each case: which agent answers which message, and which checks the answer must pass.
+#
+# agent:   an agent class in this app. It is built with `message:`, `provider:` and `model:` (see Evaluation::Case#build_agent
+#          if yours needs more, such as a record or a user).
+# checks:  names of `check_*` methods in Evaluation::Checks. A hash passes parameters:
+#            - finished                          # the model finished: not cut off, not refused
+#            - structured                        # the agent's response_schema produced an object
+#            - { max_seconds: { seconds: 20 } }
+#            - { max_output_tokens: { tokens: 500 } }
+#            - { contains: { text: "refund" } }  # also: excludes, matches
+#
+# Use real scenarios. A good set mixes ordinary cases, awkward ones, and the failures you would hate to ship.
+
+- id: smoke_test
+  title: The agent answers and finishes
+  agent: ApplicationAgent
+  message: "Reply with exactly one word: ok"
+  checks:
+    - finished
+    - { max_seconds: { seconds: 30 } }
+    - { contains: { text: "ok" } }

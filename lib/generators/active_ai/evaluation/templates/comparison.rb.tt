@@ -1,0 +1,43 @@
+# A planned head-to-head: which providers, which cases, how many times each. Planning sends nothing.
+class Evaluation::Comparison
+  attr_reader :providers, :cases, :runs
+
+  def initialize(providers: Evaluation::PROVIDERS, cases: Evaluation::Case.all, runs: 2)
+    @providers, @cases, @runs = providers, cases, runs
+  end
+
+  # ENV like OPENAI_MODEL=... overrides a provider's default for the comparison.
+  def models
+    providers.to_h do |provider|
+      [ provider, ENV["#{provider.upcase}_MODEL"].presence || ApplicationAgent::PROVIDER_MODEL_DEFAULTS[provider.to_sym] ]
+    end
+  end
+
+  def missing_keys = providers.reject { |provider| ActiveAI.config.api_key_for(provider.to_sym).present? }
+  def planned_calls = providers.size * cases.size * runs
+
+  def plan
+    <<~PLAN
+      AI provider comparison (plan only, nothing sent)
+        providers: #{models.map { |provider, model| "#{provider} (#{model || "default model"}, key #{missing_keys.include?(provider) ? "MISSING" : "found"})" }.join(", ")}
+        cases:     #{cases.map(&:id).join(", ")}
+        runs:      #{runs} per case per provider
+        calls:     #{planned_calls} real API calls
+    PLAN
+  end
+
+  # Makes the real calls. Yields each result as it arrives so a long run can show progress.
+  def compare
+    results = cases.flat_map do |evaluation_case|
+      providers.flat_map do |provider|
+        Array.new(runs) do |index|
+          evaluation_case.ask(provider: provider, model: models[provider]).tap do |result|
+            result.run_number = index + 1
+            yield result if block_given?
+          end
+        end
+      end
+    end
+    Evaluation::Report.new(results: results, runs: runs)
+  end
+end
