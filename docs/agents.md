@@ -129,10 +129,11 @@ SummaryAgent.new(message: "Summarize this.").complete_structured
 | Provider | Mechanism | Notes |
 |---|---|---|
 | OpenAI | `response_format: json_schema` | `strict: true` by default, which requires `additionalProperties: false` and every property in `required`; pass `strict: false` to relax. A refusal raises `ProviderError` (type `"refusal"`). |
-| Anthropic | forced tool call: one tool whose input schema is yours | Not enforced as strictly as OpenAI's strict mode, so still validate what comes back. Cannot be combined with `tools` (raises `ConfigurationError`). A `max_tokens` cut-off raises `ProviderError`. |
+| Anthropic | `output_config.format` (native structured outputs) | Works on every Claude model tried (Haiku, Sonnet, Opus, Fable, 4.x and 5.x). `name`, `description` and `strict` are ignored. Still validate what comes back. Not tried together with `tools`. |
 | xAI | `response_format: json_schema` (inherited) | Not covered by the live contract tests. |
 
-`complete_structured` raises `ActiveAI::StructuredOutputError` (with `#raw`) if the text is not a JSON object, and
+`complete_structured` raises `ActiveAI::StructuredOutputError` (with `#raw`) if the text is not a JSON object, saying so when
+the answer was cut off at the token limit, and
 `ConfigurationError` if the agent declares no schema. `complete` still returns the JSON text.
 
 ### `provider_options`

@@ -257,7 +257,9 @@ module ActiveAI
 
         raise ActiveAI::StructuredOutputError.new("expected a JSON object, got #{parsed.class.name.downcase}", raw: text)
       rescue JSON::ParserError => error
-        raise ActiveAI::StructuredOutputError.new("the answer was not valid JSON (#{error.message.truncate(80)})", raw: text)
+        cut_off = %w[length max_tokens].include?(last_usage&.dig(:stop_reason).to_s)
+        reason = cut_off ? "the answer was cut off at the token limit (stop_reason: #{last_usage[:stop_reason]}); raise max_tokens" : "the answer was not valid JSON (#{error.message.truncate(80)})"
+        raise ActiveAI::StructuredOutputError.new(reason, raw: text)
       end
 
       # Usage data from the last call — full breakdown including cache tokens.

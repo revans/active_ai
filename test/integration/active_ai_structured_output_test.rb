@@ -210,53 +210,61 @@ class StructuredOutputTest < ActiveSupport::TestCase
     provider
   end
 
-  def answer_message(input: { "answer" => "ok" }, stop_reason: "tool_use")
-    Message.new([ Block.new(:tool_use, "reply", input, "tu_1") ], stop_reason, Usage.new(10, 5), "msg_1")
-  end
-
   def schema_params = canonical(response_schema: { name: "reply", schema: SCHEMA.deep_stringify_keys })
 
-  test "Anthropic forces a single tool whose input schema is the response schema" do
+  def text_message(text)
+    block = Block.new(:text, nil, nil, nil)
+    block.define_singleton_method(:text) { text }
+    Message.new([ block ], "end_turn", Usage.new(10, 5), "msg_1")
+  end
+
+  test "Anthropic asks for native json_schema output and sends no tools or forced tool choice" do
     sent = nil
-    anthropic_provider(answer_message, capture: ->(params) { sent = params }).call(schema_params)
-    assert_equal [ "reply" ], sent[:tools].map { |tool| tool[:name] }
-    assert_equal SCHEMA.deep_stringify_keys, sent[:tools].first[:input_schema]
-    assert_equal({ type: "tool", name: "reply" }, sent[:tool_choice])
+    anthropic_provider(text_message('{"answer":"ok"}'), capture: ->(params) { sent = params }).call(schema_params)
+    assert_equal({ type: :json_schema, schema: SCHEMA.deep_stringify_keys }, sent[:output_config][:format_])
+    assert_not sent.key?(:tools)
+    assert_not sent.key?(:tool_choice), "newer Claude models reject forced tool choice"
   end
 
-  test "Anthropic returns the forced tool's input as JSON text (blocking)" do
-    assert_equal({ "answer" => "ok" }, JSON.parse(anthropic_provider(answer_message).call(schema_params)))
-  end
+  test "Anthropic's structured answer is ordinary text, blocking and streaming" do
+    assert_equal({ "answer" => "ok" }, JSON.parse(anthropic_provider(text_message('{"answer":"ok"}')).call(schema_params)))
 
-  test "Anthropic returns the forced tool's input as JSON text, and reports no tool calls (streaming)" do
-    provider = anthropic_provider(answer_message)
+    provider = anthropic_provider(text_message("unused"))
+    streamed = Object.new
+    finished = text_message("")
+    streamed.define_singleton_method(:text) { [ '{"answer":', '"ok"}' ].each }
+    streamed.define_singleton_method(:accumulated_message) { finished }
+    provider.instance_variable_get(:@client).messages.define_singleton_method(:stream) { |**| streamed }
     chunks = []
     provider.stream(schema_params) { |chunk| chunks << chunk }
-    assert_equal [ { "answer" => "ok" } ], chunks.map { |chunk| JSON.parse(chunk) }
-    assert_empty provider.last_tool_calls, "the forced schema tool is the answer, not a tool for the loop to run"
-    assert_empty provider.last_assistant_content
+    assert_equal({ "answer" => "ok" }, JSON.parse(chunks.join))
   end
 
-  test "Anthropic parses tool input that arrives as a JSON string, as streaming delivers it" do
-    provider = anthropic_provider(answer_message(input: '{"answer":"from a string"}'))
-    assert_equal({ "answer" => "from a string" }, JSON.parse(provider.call(schema_params)))
+  test "a schema can be used together with real tools on Anthropic (the gem no longer forbids it)" do
+    sent = nil
+    anthropic_provider(text_message("{}"), capture: ->(params) { sent = params }).call(schema_params.merge(tools: [ { name: "t", description: "d", input_schema: {} } ]))
+    assert_equal [ "t" ], sent[:tools].map { |tool| tool[:name] }
+    assert sent[:output_config][:format_]
   end
 
-  test "a cut-off structured answer is an error that says to raise max_tokens" do
-    error = assert_raises(ActiveAI::ProviderError) { anthropic_provider(answer_message(stop_reason: "max_tokens")).call(schema_params) }
-    assert_match "max_tokens", error.message
+  test "provider_options deep-merge into the output_config the gem built" do
+    sent = nil
+    anthropic_provider(text_message("{}"), capture: ->(params) { sent = params }).call(schema_params.merge(options: { output_config: { effort: "low" } }))
+    assert_equal "low", sent[:output_config][:effort]
+    assert_equal :json_schema, sent[:output_config][:format_][:type], "the schema format must survive an effort option"
   end
 
-  test "a response with no schema tool block is an error" do
-    empty = Message.new([ Block.new(:text, nil, nil, nil) ], "end_turn", Usage.new(1, 1), "m")
-    assert_raises(ActiveAI::ProviderError) { anthropic_provider(empty).call(schema_params) }
-  end
+  test "a structured answer cut off at the token limit says so" do
+    agent = agent_class { response_schema SCHEMA }.new(system: "s", message: "hi")
+    stub_ai_response(agent, response: '{"answer": "ok and then it was cut o')
+    agent.define_singleton_method(:last_usage) { { stop_reason: :max_tokens } }
+    error = assert_raises(ActiveAI::StructuredOutputError) { agent.complete_structured }
+    assert_match(/cut off at the token limit.*raise max_tokens/, error.message)
 
-  test "a schema cannot be combined with real tools on Anthropic" do
-    error = assert_raises(ActiveAI::ConfigurationError) do
-      anthropic_provider(answer_message).call(schema_params.merge(tools: [ { name: "t", description: "d", input_schema: {} } ]))
-    end
-    assert_match "cannot be combined with tools", error.message
+    openai_agent = agent_class { response_schema SCHEMA }.new(system: "s", message: "hi")
+    stub_ai_response(openai_agent, response: '{"answer": "unfinis')
+    openai_agent.define_singleton_method(:last_usage) { { stop_reason: "length" } }
+    assert_match "cut off", assert_raises(ActiveAI::StructuredOutputError) { openai_agent.complete_structured }.message
   end
 
   test "Anthropic sends no tool_choice without a schema, and provider_options pass through" do

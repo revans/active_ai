@@ -13,10 +13,14 @@ module ProviderContract
       @provider_name = self.class::PROVIDER
       @model = model_for(@provider_name)
       @available = provider_class(@provider_name).models(refresh: true, fallback: false)
-      skip "model #{@model} is not available to this key; set ACTIVE_AI_LIVE_#{@provider_name.to_s.upcase}_MODEL" if @available && !@available.include?(@model)
+      skip "model #{@model} is not available to this key; set ACTIVE_AI_LIVE_#{@provider_name.to_s.upcase}_MODELS" if @available && !@available.include?(@model)
     end
 
-    def agent(**options) = ApplicationAgent.new(system: "Reply with exactly one word: ok", message: "ping", provider: @provider_name, model: @model, **options)
+    def agent(model: @model, **options) = ApplicationAgent.new(system: "Reply with exactly one word: ok", message: "ping", provider: @provider_name, model: model, **options)
+
+    def skip_unless_available!(model)
+      skip "model #{model} is not available to this key" if @available && !@available.include?(model)
+    end
 
     test "model discovery lists the models this key can use" do
       assert_kind_of Array, @available
@@ -24,25 +28,29 @@ module ProviderContract
       assert_includes @available, @model
     end
 
-    test "a tiny completion returns text and token usage" do
-      subject = agent
-      assert_predicate subject.complete.strip, :present?
-      assert_operator subject.last_usage[:input_tokens].to_i, :>, 0
-      assert_operator subject.last_usage[:output_tokens].to_i, :>, 0
+    LiveHelper.models_for(self::PROVIDER).each do |model|
+      test "a tiny completion returns text and token usage (#{model})" do
+        skip_unless_available!(model)
+        subject = agent(model: model)
+        assert_predicate subject.complete.strip, :present?
+        assert_operator subject.last_usage[:input_tokens].to_i, :>, 0
+        assert_operator subject.last_usage[:output_tokens].to_i, :>, 0
+      end
+
+      test "structured output returns an object matching the schema (#{model})" do
+        skip_unless_available!(model)
+        klass = Class.new(ApplicationAgent) { response_schema SCHEMA, name: "contract_reply" }
+        result = klass.new(system: "Put the single word ok in the answer field.", message: "go", provider: @provider_name, model: model).complete_structured
+        assert_equal [ "answer" ], result.keys
+        assert_kind_of String, result["answer"]
+        assert_predicate result["answer"], :present?
+      end
     end
 
     test "streaming delivers text" do
       chunks = []
       agent.stream { |event| chunks << event if event.is_a?(String) }
       assert_predicate chunks.join.strip, :present?
-    end
-
-    test "structured output returns an object matching the schema" do
-      klass = Class.new(ApplicationAgent) { response_schema SCHEMA, name: "contract_reply" }
-      result = klass.new(system: "Put the single word ok in the answer field.", message: "go", provider: @provider_name, model: @model).complete_structured
-      assert_equal [ "answer" ], result.keys
-      assert_kind_of String, result["answer"]
-      assert_predicate result["answer"], :present?
     end
 
     test "provider_options reach the API untouched" do

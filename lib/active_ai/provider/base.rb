@@ -93,10 +93,18 @@ module ActiveAI
 
       private
 
-      # Merges the agent's provider_options into the request. A nil value removes a parameter instead.
+      # Merges the agent's provider_options into the request. A nil value removes a parameter instead, and a
+      # Hash merges into one the gem already built (so output_config: { effort: "low" } keeps the schema format).
       def apply_options(params, options)
         Hash(options).each do |key, value|
-          value.nil? ? params.delete(key.to_sym) : params[key.to_sym] = value
+          key = key.to_sym
+          if value.nil?
+            params.delete(key)
+          elsif value.is_a?(Hash) && params[key].is_a?(Hash)
+            params[key] = params[key].deep_merge(value)
+          else
+            params[key] = value
+          end
         end
         params
       end

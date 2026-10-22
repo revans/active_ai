@@ -9,17 +9,24 @@ require "json"
 #   ACTIVE_AI_LIVE=1 OPENAI_API_KEY=... ANTHROPIC_API_KEY=... bundle exec rake test:live
 #
 # Costs a few cents. ACTIVE_AI_RECORD=1 also rewrites test/fixtures/provider_errors/*.json from the real
-# error responses; the offline suite replays those. Models default to cheap ones; override with
-# ACTIVE_AI_LIVE_OPENAI_MODEL / ACTIVE_AI_LIVE_ANTHROPIC_MODEL.
+# error responses; the offline suite replays those. Models default to a cheap one and a flagship per provider;
+# override with ACTIVE_AI_LIVE_OPENAI_MODELS / ACTIVE_AI_LIVE_ANTHROPIC_MODELS (comma-separated).
 module LiveHelper
   FIXTURE_DIR = File.expand_path("../fixtures/provider_errors", __dir__)
-  DEFAULT_MODELS = { openai: "gpt-5.6-luna", anthropic: "claude-haiku-5-5" }.freeze
+  # A cheap model and a flagship, because a cheap model alone once hid a bug: Anthropic's forced tool choice
+  # worked on Haiku but is rejected by Sonnet 5.5, Opus 5.5 and Fable 5.1.
+  DEFAULT_MODELS = { openai: "gpt-5.6-luna,gpt-5.6-terra", anthropic: "claude-haiku-5-5,claude-sonnet-5-5" }.freeze
   BAD_KEY = "sk-invalid-contract-test-0123456789abcdef".freeze
 
   def self.live? = ENV["ACTIVE_AI_LIVE"] == "1"
   def self.recording? = ENV["ACTIVE_AI_RECORD"] == "1"
 
-  def model_for(provider) = ENV["ACTIVE_AI_LIVE_#{provider.to_s.upcase}_MODEL"].presence || DEFAULT_MODELS.fetch(provider)
+  # Models the contract runs against. The first is the cheap one, used for the error-shape tests.
+  def self.models_for(provider)
+    (ENV["ACTIVE_AI_LIVE_#{provider.to_s.upcase}_MODELS"].presence || DEFAULT_MODELS.fetch(provider)).split(",").map(&:strip)
+  end
+
+  def model_for(provider) = LiveHelper.models_for(provider).first
 
   def provider_class(provider) = ActiveAI::Provider.const_get(provider == :openai ? "OpenAI" : "Anthropic")
 
