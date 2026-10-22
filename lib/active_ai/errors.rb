@@ -34,6 +34,17 @@ module ActiveAI
   end
 
   class ConfigurationError < Error; end
+
+  # Raised by Agent#complete_structured when the model's answer is not the JSON it was asked for.
+  # The raw text is kept so the caller can log or show it.
+  class StructuredOutputError < Error
+    attr_reader :raw
+
+    def initialize(msg = nil, raw: nil)
+      super(msg)
+      @raw = raw
+    end
+  end
   class MissingPromptError < Error; end
 
   # Raised when the agentic tool loop exceeds MAX_TOOL_ITERATIONS.

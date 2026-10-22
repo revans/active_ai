@@ -36,10 +36,12 @@ module ActiveAI
       end
 
       class_attribute :_provider_name, :_model_config, :_cache_config, :_tools, :_system_prompt, :_skills
+      class_attribute :_response_schema, :_provider_options
       class_attribute :provider_model_defaults, default: {}
       self._cache_config = {}
       self._tools        = []
       self._skills       = []
+      self._provider_options = {}
 
       # Class-level declarations ─────────────────────────────────────────────────
 
@@ -82,6 +84,38 @@ module ActiveAI
           item.is_a?(String) ? { name: nil, content: item } : item
         end
         self._skills = _skills + items
+      end
+
+      # Constrains the answer to JSON matching a JSON Schema, using each provider's own mechanism
+      # (OpenAI: response_format json_schema; Anthropic: a forced tool call). Read it with
+      # #complete_structured, which returns a Hash.
+      #
+      #   response_schema name: "reply", schema: {
+      #     type: "object",
+      #     properties: { summary: { type: "string" } },
+      #     required: ["summary"], additionalProperties: false
+      #   }
+      #
+      # OpenAI's strict mode needs additionalProperties: false and every property listed in `required`;
+      # pass strict: false to relax that. Anthropic does not enforce the schema as strictly as OpenAI's
+      # strict mode, so still validate what comes back. Cannot be combined with tools on Anthropic.
+      SCHEMA_NAME = /\A[a-zA-Z0-9_-]{1,64}\z/
+
+      def self.response_schema(schema, name: nil, description: nil, strict: true)
+        name ||= (self.name || "response").underscore.tr("/", "_")
+        raise ArgumentError, "response_schema name #{name.inspect} must match #{SCHEMA_NAME.inspect}" unless name.match?(SCHEMA_NAME)
+        raise ArgumentError, "response_schema expects a Hash JSON Schema, got #{schema.class}" unless schema.is_a?(Hash)
+
+        self._response_schema = { name: name, description: description, strict: strict, schema: schema.deep_stringify_keys }.compact
+      end
+
+      # Extra request parameters for one provider, passed through untouched. The escape hatch for anything a
+      # provider adds that this gem has not caught up with. A nil value removes a parameter the gem would
+      # otherwise send.
+      #
+      #   provider_options openai: { reasoning_effort: "low" }, anthropic: { temperature: 0.2 }
+      def self.provider_options(**by_provider)
+        self._provider_options = _provider_options.deep_merge(by_provider.transform_keys(&:to_sym))
       end
 
       # Convenience entry point — equivalent to new(message: message, **context).complete.
@@ -210,6 +244,22 @@ module ActiveAI
         result
       end
 
+      # Like #complete, for an agent that declares a response_schema: returns the parsed Hash.
+      # Raises StructuredOutputError (with the raw text) if the answer is not valid JSON.
+      def complete_structured
+        unless self.class._response_schema
+          raise ActiveAI::ConfigurationError, "#{self.class.name} declares no response_schema, so there is nothing to parse into"
+        end
+
+        text = complete
+        parsed = JSON.parse(text)
+        return parsed if parsed.is_a?(Hash)
+
+        raise ActiveAI::StructuredOutputError.new("expected a JSON object, got #{parsed.class.name.downcase}", raw: text)
+      rescue JSON::ParserError => error
+        raise ActiveAI::StructuredOutputError.new("the answer was not valid JSON (#{error.message.truncate(80)})", raw: text)
+      end
+
       # Usage data from the last call — full breakdown including cache tokens.
       def last_usage
         @last_provider_instance&.last_usage
@@ -232,17 +282,40 @@ module ActiveAI
       # rather than this method.
       def build_params
         validate_history!
-        {
+        params = {
           model:        resolved_model,
           max_tokens:   self.class._model_config&.fetch(:max_tokens, nil) || ActiveAI.config.max_tokens,
           system:       build_system_prompt,
           skills:       self.class._skills.map { |s| s.respond_to?(:to_definition) ? s.to_definition(skill_context) : s } +
-                        @skills.map { |s| { id: s.id, name: s.name, content: s.content } },
+                        Array(@skills).map { |s| per_call_skill(s) },
           source_files: @source_files,
           messages:     build_messages,
           cacheable:    self.class._cache_config,
           tools:        all_tools.map(&:to_definition)
         }
+        params[:response_schema] = self.class._response_schema if self.class._response_schema
+        params[:options]         = request_options if request_options.present?
+        params
+      end
+
+      # Extra provider request parameters for the resolved provider (see .provider_options).
+      # Override for options that depend on the instance.
+      def request_options
+        self.class._provider_options.fetch(resolved_provider, {})
+      end
+
+      # A per-call skill may be a Skill class, a plain string, a { content: } hash, or any object
+      # responding to id, name and content, the same shapes the class-level macro accepts, plus objects.
+      def per_call_skill(skill)
+        if skill.respond_to?(:to_definition)
+          skill.to_definition(skill_context)
+        elsif skill.is_a?(String)
+          { name: nil, content: skill }
+        elsif skill.is_a?(Hash)
+          skill.symbolize_keys
+        else
+          { id: skill.id, name: skill.name, content: skill.content }
+        end
       end
 
       # Returns the system prompt string. Override to add memory recall, custom

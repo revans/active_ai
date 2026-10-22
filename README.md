@@ -87,6 +87,7 @@ end
 | Configuration | `config/ai.yml`, `ActiveAI.configure`, API key chain | [docs/configuration.md](docs/configuration.md) |
 | Agents | Base class, DSL, agentic loop | [docs/agents.md](docs/agents.md) |
 | Skills | Behavioral instruction blocks | [docs/skills.md](docs/skills.md) |
+| Structured output | `response_schema` + `complete_structured`, `provider_options` | [docs/agents.md](docs/agents.md) |
 | Tools | Custom executable functions | [docs/tools.md](docs/tools.md) |
 | Built-in Tools | WebSearch, WebPageReader | [docs/built-in-tools.md](docs/built-in-tools.md) |
 | Providers | Anthropic, OpenAI, xAI, custom | [docs/providers.md](docs/providers.md) |

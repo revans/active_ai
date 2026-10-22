@@ -54,7 +54,9 @@ module ActiveAI
         @last_assistant_content = []
         response    = client.chat(parameters: build_params(canonical))
         @last_usage = extract_usage_from_response(response)
-        response.dig("choices", 0, "message", "content")
+        content = response.dig("choices", 0, "message", "content")
+        raise_refusal(response.dig("choices", 0, "message", "refusal")) if content.blank?
+        content
       rescue ::OpenAI::Error, Faraday::Error => provider_error
         raise provider_error_from(provider_error)
       end
@@ -71,6 +73,7 @@ module ActiveAI
 
         client.chat(parameters: params)
         @last_usage = normalize_usage(accumulator)
+        raise_refusal(accumulator["refusal"]) if accumulator["refusal"].present? && accumulator["tool_calls"].blank? && !accumulator["streamed_text"]
         finalize_tool_calls(accumulator)
       rescue ::OpenAI::Error, Faraday::Error => provider_error
         raise provider_error_from(provider_error)
@@ -144,7 +147,14 @@ module ActiveAI
           }
         end
 
-        params
+        if (schema = canonical[:response_schema])
+          params[:response_format] = {
+            type: "json_schema",
+            json_schema: { name: schema[:name], schema: schema[:schema], strict: schema.fetch(:strict, true) }.merge(schema.slice(:description))
+          }
+        end
+
+        apply_options(params, canonical[:options])
       end
 
       # stop_reason and usage arrive on DIFFERENT chunks in OpenAI streaming:
@@ -168,7 +178,14 @@ module ActiveAI
         choices = chunk["choices"] || []
 
         content = choices.dig(0, "delta", "content")
-        yield content if content.present?
+        if content.present?
+          accumulator["streamed_text"] = true
+          yield content
+        end
+
+        if (refusal = choices.dig(0, "delta", "refusal")).present?
+          accumulator["refusal"] = "#{accumulator["refusal"]}#{refusal}"
+        end
 
         # Accumulate tool_call deltas — OpenAI sends the tool call across multiple
         # chunks, like a jigsaw puzzle: first chunk names the tool, subsequent
@@ -222,6 +239,13 @@ module ActiveAI
           @last_tool_calls        = []
           @last_assistant_content = []
         end
+      end
+
+      # In structured-output mode the model can decline instead of answering; OpenAI reports that in a
+      # separate `refusal` field and leaves the content empty. That is a failure, not an empty answer.
+      def raise_refusal(refusal)
+        return if refusal.blank?
+        raise ActiveAI::ProviderError.new("#{provider_label}: the model declined to answer: #{clean_message(refusal)}", provider_message: clean_message(refusal), type: "refusal")
       end
 
       def extract_usage_from_response(response)

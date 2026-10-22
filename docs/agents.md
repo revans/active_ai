@@ -107,6 +107,45 @@ Provides a human-readable description of what the agent does. Required when regi
 description "Drafts, edits, and structures written content inside a document."
 ```
 
+### `response_schema`
+
+Constrains the answer to JSON matching a JSON Schema, using each provider's own mechanism, and read it with
+`complete_structured`, which returns a Hash:
+
+```ruby
+class SummaryAgent < ApplicationAgent
+  response_schema name: "summary", schema: {
+    type: "object",
+    properties: { title: { type: "string" }, points: { type: "array", items: { type: "string" } } },
+    required: %w[title points],
+    additionalProperties: false
+  }
+end
+
+SummaryAgent.new(message: "Summarize this.").complete_structured
+# => { "title" => "...", "points" => ["...", "..."] }
+```
+
+| Provider | Mechanism | Notes |
+|---|---|---|
+| OpenAI | `response_format: json_schema` | `strict: true` by default, which requires `additionalProperties: false` and every property in `required`; pass `strict: false` to relax. A refusal raises `ProviderError` (type `"refusal"`). |
+| Anthropic | forced tool call: one tool whose input schema is yours | Not enforced as strictly as OpenAI's strict mode, so still validate what comes back. Cannot be combined with `tools` (raises `ConfigurationError`). A `max_tokens` cut-off raises `ProviderError`. |
+| xAI | `response_format: json_schema` (inherited) | Not covered by the live contract tests. |
+
+`complete_structured` raises `ActiveAI::StructuredOutputError` (with `#raw`) if the text is not a JSON object, and
+`ConfigurationError` if the agent declares no schema. `complete` still returns the JSON text.
+
+### `provider_options`
+
+Passes extra request parameters to one provider untouched, for anything a provider adds that the gem has not caught
+up with. A `nil` value removes a parameter the gem would otherwise send. Override `request_options` for per-instance values.
+
+```ruby
+class ThoughtfulAgent < ApplicationAgent
+  provider_options openai: { reasoning_effort: "low" }, anthropic: { temperature: 0.2 }
+end
+```
+
 ### `before_complete` / `after_complete`
 
 Lifecycle hooks that fire around the `complete` call (not around `stream` directly — `complete` wraps `stream`). Useful for logging, metrics, validation, or broadcasting:
@@ -157,7 +196,7 @@ See [memory.md](memory.md) for details.
 | `context:` | string | Prepended as a read user/assistant exchange (for passing large content) |
 | `source_files:` | array | Array of file-like objects with caching support |
 | `history:` | array | Prior message objects (must respond to `.role`, `.content`) |
-| `skills:` | array | Per-call skill instances merged with class-level skills |
+| `skills:` | array | Per-call skills merged with class-level skills: a Skill class, a string, a `{ content: }` hash, or any object with `id`, `name`, `content` |
 | `focus:` | string | Selected text to prepend to the message |
 | `file_name:` | string | Attached file name to prepend to the message |
 | `file_content:` | string | Attached file content to prepend to the message |

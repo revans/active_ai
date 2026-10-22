@@ -93,6 +93,14 @@ module ActiveAI
 
       private
 
+      # Merges the agent's provider_options into the request. A nil value removes a parameter instead.
+      def apply_options(params, options)
+        Hash(options).each do |key, value|
+          value.nil? ? params.delete(key.to_sym) : params[key.to_sym] = value
+        end
+        params
+      end
+
       def provider_label
         PROVIDER_LABELS.fetch(self.class.provider_name) { self.class.name.demodulize }
       end

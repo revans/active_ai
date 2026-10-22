@@ -56,6 +56,7 @@ module ActiveAI
         @last_usage             = extract_usage(response)
         @last_tool_calls        = []
         @last_assistant_content = []
+        return structured_answer(response, canonical[:response_schema]) if canonical[:response_schema]
         response.content.first.text
       rescue ::Anthropic::Errors::Error => provider_error
         raise provider_error_from(provider_error)
@@ -70,8 +71,15 @@ module ActiveAI
         message_stream.text.each { |text| yield text }
         accumulated_message         = message_stream.accumulated_message
         @last_usage             = extract_usage(accumulated_message)
-        @last_tool_calls        = extract_tool_calls(accumulated_message)
-        @last_assistant_content = extract_assistant_content(accumulated_message)
+        if canonical[:response_schema]
+          # The forced tool call is the answer, not a tool to run: hand it back as text, report no tool calls.
+          @last_tool_calls        = []
+          @last_assistant_content = []
+          yield structured_answer(accumulated_message, canonical[:response_schema])
+        else
+          @last_tool_calls        = extract_tool_calls(accumulated_message)
+          @last_assistant_content = extract_assistant_content(accumulated_message)
+        end
       rescue ::Anthropic::Errors::Error => provider_error
         raise provider_error_from(provider_error)
       end
@@ -89,7 +97,35 @@ module ActiveAI
         }
         tools = Array(canonical[:tools])
         params[:tools] = tools if tools.any?
-        params
+        apply_structured_output(params, canonical[:response_schema], tools)
+        apply_options(params, canonical[:options])
+      end
+
+      # Anthropic has no response_format; the dependable way to get schema-shaped JSON is to force a call
+      # to a single tool whose input schema is the response schema. The tool's input IS the answer.
+      def apply_structured_output(params, schema, tools)
+        return unless schema
+        if tools.any?
+          raise ActiveAI::ConfigurationError,
+            "response_schema cannot be combined with tools on Anthropic: forcing the schema tool leaves no room for real tool calls"
+        end
+
+        params[:tools] = [ { name: schema[:name], description: schema[:description] || "Answer with a JSON object matching this schema.", input_schema: schema[:schema] } ]
+        params[:tool_choice] = { type: "tool", name: schema[:name] }
+      end
+
+      # The JSON text of the forced tool's input, or a ProviderError saying why there is none.
+      def structured_answer(message, schema)
+        block = Array(message.content).find { |item| item.respond_to?(:type) && item.type == :tool_use && item.name == schema[:name] }
+        if block.nil? || message.stop_reason.to_s == "max_tokens"
+          raise ActiveAI::ProviderError.new(
+            "Anthropic: no complete structured answer came back (stop_reason: #{message.stop_reason.inspect}); " \
+            "a stop_reason of max_tokens means the answer was cut off, so raise max_tokens",
+            provider_message: "no complete structured answer (stop_reason: #{message.stop_reason})"
+          )
+        end
+
+        JSON.generate(parse_tool_input(block.input))
       end
 
       # Builds the system array: base system block, one block per skill, optional source files block.
