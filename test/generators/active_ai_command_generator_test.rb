@@ -1,4 +1,5 @@
 require "test_helper"
+require "tmpdir"
 require "rails/generators/test_case"
 require "generators/active_ai/command/command_generator"
 
@@ -13,7 +14,7 @@ require "generators/active_ai/command/command_generator"
 # the right place, and that the plate is only installed once.
 class ActiveAICommandGeneratorTest < Rails::Generators::TestCase
   tests ActiveAI::Generators::CommandGenerator
-  destination File.expand_path("../tmp", __dir__)
+  destination File.join(Dir.tmpdir, "active_ai_generator_tests_#{Process.pid}")
   setup :prepare_destination
 
   test "creates the command file" do

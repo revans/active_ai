@@ -1,3 +1,7 @@
 .env
 .claude
 
+/test/tmp/
+/test/dummy/log/*.log
+/test/dummy/tmp/
+/tmp/

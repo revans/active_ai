@@ -1,4 +1,5 @@
 require "test_helper"
+require "tmpdir"
 require "rails/generators/test_case"
 require "generators/active_ai/prompt/prompt_generator"
 
@@ -11,7 +12,7 @@ require "generators/active_ai/prompt/prompt_generator"
 # verify that each drawer receives the right type of paper.
 class ActiveAIPromptGeneratorTest < Rails::Generators::TestCase
   tests ActiveAI::Generators::PromptGenerator
-  destination File.expand_path("../tmp", __dir__)
+  destination File.join(Dir.tmpdir, "active_ai_generator_tests_#{Process.pid}")
   setup :prepare_destination
 
   # ── File placement ────────────────────────────────────────────────────────────
