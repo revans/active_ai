@@ -27,6 +27,68 @@ Fires once per `agent.complete` call — the full agent turn including any tool-
 
 ---
 
+### `agent_usage.active_ai`
+
+Fires once per call (`complete`, `generate` or `stream`) with the tokens **every** provider call in it used, whether or not the call finished. Use this one to count what you are spending: unlike `agent_complete.active_ai`, whose `:usage` is only the final turn, this event adds the turns of a tool loop together, and it still fires when a later turn raises, so tokens spent on an answer you discarded or an error you rescued are not lost. It does not fire when the provider reported no usage at all (a turn that fails before the provider answers has nothing to count).
+
+| Key | Type | Description |
+|---|---|---|
+| `:agent_class` | String | Name of the agent class |
+| `:provider` | Symbol | Provider used |
+| `:model` | String | Model requested |
+| `:usage` | Hash | Token counts added up over every turn: `:input_tokens`, `:output_tokens`, `:cache_creation_tokens`, `:cache_read_tokens`, `:reasoning_tokens` |
+| `:turns` | Integer | How many provider calls the tool loop made |
+| `:per_turn` | Array | Each turn's own usage hash, in order |
+| `:completed` | Boolean | `false` when the call raised |
+| `:context` | Hash | Whatever the agent's `#call_context` returns, so you can say whose call it was |
+
+```ruby
+class ApplicationAgent < ActiveAI::Agent::Base
+  def call_context = { user_id: @user.id }
+end
+
+ActiveSupport::Notifications.subscribe("agent_usage.active_ai") do |event|
+  Ledger.record!(user_id: event.payload.dig(:context, :user_id), usage: event.payload[:usage])
+end
+```
+
+Provider differences to remember when adding tokens up: OpenAI's `:input_tokens` already includes cached tokens (`:cache_read_tokens` is a part of it), and `:reasoning_tokens` is a part of `:output_tokens`. Anthropic reports cache reads and writes **in addition to** `:input_tokens`.
+
+---
+
+### `agent_turn.active_ai`
+
+Fires after **every provider call** in a run, as soon as the call returns and before any tool it asked for runs. Use it to
+keep everything an agent says. A run with tools makes several calls, and `agent_complete.active_ai` only reports the whole
+run; this one hands you each turn's words on their own, in order, so the narration before a tool call is saved as its own
+entry and nothing later (a failing tool, a failing second call) can lose it. If a call breaks off mid-answer, the words
+already said are published too, with `:interrupted` set.
+
+| Key | Type | Description |
+|---|---|---|
+| `:agent_class` | String | Name of the agent class |
+| `:provider` | Symbol | Provider used |
+| `:turn` | Integer | 1 for the first provider call, then 2, and so on |
+| `:text` | String | Every word the model said this turn, in order (`""` when it went straight to a tool) |
+| `:tool_calls` | Array | The tools it asked for this turn: `[{ id:, name:, input: }]` |
+| `:usage` | Hash\|nil | This turn's own token counts |
+| `:model` | String\|nil | The model that served this turn |
+| `:finish_reason` | String\|nil | The provider's own word for why the turn stopped |
+| `:final` | Boolean | `true` for the turn that gave the answer |
+| `:interrupted` | Boolean | `true` when the call broke off before it finished |
+| `:context` | Hash | Whatever the agent's `#call_context` returns |
+
+```ruby
+ActiveSupport::Notifications.subscribe("agent_turn.active_ai") do |event|
+  payload = event.payload
+  Transcript.create!(run_id: payload.dig(:context, :run_id), turn: payload[:turn], said: payload[:text], tool_calls: payload[:tool_calls])
+end
+```
+
+The same entries come back as `response.turn_log`, and as `agent.turn_log` after a run that raised.
+
+---
+
 ### `agent_stream.active_ai`
 
 Fires inside `agent_complete.active_ai` — wraps the raw stream loop. Useful for lower-level timing or when you need per-stream metrics separate from the full turn.

@@ -11,14 +11,18 @@ module ActiveAI
   #   response.requested_model   # the model that was asked for (often the same, sometimes an alias)
   #   response.start_time        # when the run started: a UTC Time, to the millisecond, set by ActiveAI
   #   response.end_time          # when the run ended; as_json renders both as ISO 8601 with milliseconds
+  #   response.turn_log          # what the model said and asked for in each turn, in order (text is every turn's text joined)
   #
   # A truncated or refused answer is a Response, not an exception: the model did answer, and the caller
   # decides what to do. Exceptions (ProviderError) are for the failure to get an answer at all.
   Response = Data.define(
     :text, :data, :data_error, :provider, :requested_model, :model,
     :finish_reason, :raw_finish_reason, :refusal, :usage, :turns,
-    :request_id, :tool_calls, :latency, :start_time, :end_time
+    :request_id, :tool_calls, :latency, :start_time, :end_time, :turn_log
   ) do
+    # turn_log is optional so a Response built before it existed (a test double, a stored one) still loads.
+    def initialize(turn_log: [], **fields) = super(turn_log: turn_log, **fields)
+
     def complete? = finish_reason == :complete
     def truncated? = finish_reason == :truncated
     def refused? = finish_reason == :refused

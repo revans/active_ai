@@ -48,6 +48,7 @@ symbols become strings, and it is ready to store or log. (In Ruby, `response.fin
   "turns": 1,                  // Integer. Provider calls the run took (more than 1 when tools ran).
   "request_id": "...",         // String or null. The provider's id for the final call.
   "tool_calls": [ ],           // Array. Tools the agent executed: { id, name, result }.
+  "turn_log": [ ],             // Array. What the model said and asked for in each turn, in order (below).
   "latency": 1.045,            // Number. Seconds the whole run took (monotonic clock).
   "start_time": "2026-10-22T19:40:57.278Z", // String. When the run started: ISO 8601, UTC, always 3 millisecond digits.
   "end_time": "2026-10-22T19:40:58.323Z"    // String. When the run ended, same format.
@@ -71,6 +72,7 @@ symbols become strings, and it is ready to store or log. (In Ruby, `response.fin
 | `turns` | integer | no | `0` only when no provider call happened (a stubbed agent). |
 | `request_id` | string | **yes** | Equals `usage.provider_request_id`. |
 | `tool_calls` | array | no (may be `[]`) | Each entry is `{ "id", "name", "result" }`: the tool's *result*, not its input. |
+| `turn_log` | array | no (may be `[]`) | One entry per provider call, oldest first: what the model said and asked for. See [`turn_log`](#turn_log). |
 | `latency` | number | no | Seconds the run took, rounded to milliseconds. Measured with a monotonic clock. |
 | `start_time` | string | no | When the run started. ISO 8601 UTC with exactly three fractional digits, e.g. `2026-10-22T19:40:57.278Z`. |
 | `end_time` | string | no | When the run ended, same format. |
@@ -96,6 +98,26 @@ The same keys for every provider:
 | `provider_request_id` | string | |
 
 Counts are summed over every provider call in the run. `stop_reason` and `provider_request_id` come from the final call.
+
+### `turn_log`
+
+`text` is everything the model said, from every turn, joined into one string. When a run has tool turns, that hides where
+one turn ends and the next begins, and the words before a tool call run straight into the answer. `turn_log` keeps them
+apart, so an app can save every word the model said without guessing where to cut.
+
+| Key | Type | Notes |
+|---|---|---|
+| `turn` | integer | 1 for the first provider call, then 2, and so on. |
+| `text` | string | Every word the model said in this turn, in order. `""` when it went straight to a tool. |
+| `tool_calls` | array | The tools it asked for this turn: `{ id, name, input }`. Their results are in the response's `tool_calls`. |
+| `usage` | object or null | This turn's own token counts. Adding them up gives the response's `usage`. |
+| `model` | string or null | The model that served the turn. |
+| `finish_reason` | string or null | The provider's own word for why the turn stopped. |
+| `final` | boolean | `true` for the turn that gave the answer (it asked for no tool). |
+| `interrupted` | boolean | `true` for a turn that broke off mid-answer; `text` is what had been said by then. |
+
+The same entries are published as they happen by the [`agent_turn.active_ai`](instrumentation.md#agent_turnactive_ai)
+event, and `agent.turn_log` returns them even when the run raised, so a failure never loses what was already said.
 
 ### Same shape, different values
 
@@ -144,6 +166,26 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "ok",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 18,
+        "output_tokens": 4,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": 0,
+        "stop_reason": "stop",
+        "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "gpt-5.6-terra",
+      "finish_reason": "stop",
+      "final": true,
+      "interrupted": false
+    }
+  ],
   "latency": 1.602,
   "start_time": "2026-10-22T19:40:57.278Z",
   "end_time": "2026-10-22T19:40:58.879Z"
@@ -178,6 +220,26 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "ok",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 23,
+        "output_tokens": 4,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": null,
+        "stop_reason": "end_turn",
+        "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "claude-sonnet-5-5",
+      "finish_reason": "end_turn",
+      "final": true,
+      "interrupted": false
+    }
+  ],
   "latency": 1.179,
   "start_time": "2026-10-22T19:41:00.988Z",
   "end_time": "2026-10-22T19:41:02.167Z"
@@ -216,6 +278,26 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "{\"answer\":\"ok\"}",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 46,
+        "output_tokens": 12,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": 0,
+        "stop_reason": "stop",
+        "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "gpt-5.6-terra",
+      "finish_reason": "stop",
+      "final": true,
+      "interrupted": false
+    }
+  ],
   "latency": 0.786,
   "start_time": "2026-10-22T19:40:58.880Z",
   "end_time": "2026-10-22T19:40:59.665Z"
@@ -252,6 +334,26 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "{\"answer\":\"ok\"}",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 209,
+        "output_tokens": 12,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": null,
+        "stop_reason": "end_turn",
+        "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "claude-sonnet-5-5",
+      "finish_reason": "end_turn",
+      "final": true,
+      "interrupted": false
+    }
+  ],
   "latency": 1.814,
   "start_time": "2026-10-22T19:41:02.167Z",
   "end_time": "2026-10-22T19:41:03.981Z"
@@ -289,6 +391,26 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 30,
+        "output_tokens": 20,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": 20,
+        "stop_reason": "length",
+        "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "gpt-5.6-terra",
+      "finish_reason": "length",
+      "final": true,
+      "interrupted": false
+    }
+  ],
   "latency": 1.322,
   "start_time": "2026-10-22T19:40:59.665Z",
   "end_time": "2026-10-22T19:41:00.988Z"
@@ -323,6 +445,26 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 39,
+        "output_tokens": 20,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": null,
+        "stop_reason": "max_tokens",
+        "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "claude-sonnet-5-5",
+      "finish_reason": "max_tokens",
+      "final": true,
+      "interrupted": false
+    }
+  ],
   "latency": 0.872,
   "start_time": "2026-10-22T19:41:03.982Z",
   "end_time": "2026-10-22T19:41:04.854Z"
@@ -359,6 +501,26 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 18,
+        "output_tokens": 0,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": 0,
+        "stop_reason": "stop",
+        "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "gpt-5.6-terra",
+      "finish_reason": "stop",
+      "final": true,
+      "interrupted": false
+    }
+  ],
   "latency": 1.045,
   "start_time": "2026-10-22T19:41:10.100Z",
   "end_time": "2026-10-22T19:41:10.245Z"
@@ -372,7 +534,7 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
 
 ```json
 {
-  "text": "It costs $19.",
+  "text": "Let me check the price.It costs $19.",
   "data": null,
   "data_error": null,
   "provider": "anthropic",
@@ -397,6 +559,52 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
       "id": "toolu_01XXXXXXXXXXXXXXXXXXXXXXXX",
       "name": "price_check",
       "result": "{\"price\":\"$19\"}"
+    }
+  ],
+  "turn_log": [
+    {
+      "turn": 1,
+      "text": "Let me check the price.",
+      "tool_calls": [
+        {
+          "id": "toolu_01XXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "price_check",
+          "input": {
+            "sku": "A1"
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 120,
+        "output_tokens": 11,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": null,
+        "stop_reason": "tool_use",
+        "provider_request_id": "msg_01YYYYYYYYYYYYYYYYYYYYYYYY"
+      },
+      "model": "claude-sonnet-5-5",
+      "finish_reason": "tool_use",
+      "final": false,
+      "interrupted": false
+    },
+    {
+      "turn": 2,
+      "text": "It costs $19.",
+      "tool_calls": [],
+      "usage": {
+        "input_tokens": 140,
+        "output_tokens": 20,
+        "cache_creation_tokens": 0,
+        "cache_read_tokens": 0,
+        "reasoning_tokens": null,
+        "stop_reason": "end_turn",
+        "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX"
+      },
+      "model": "claude-sonnet-5-5",
+      "finish_reason": "end_turn",
+      "final": true,
+      "interrupted": false
     }
   ],
   "latency": 1.179,

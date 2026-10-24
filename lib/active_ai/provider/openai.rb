@@ -52,17 +52,20 @@ module ActiveAI
 
       def last_tool_calls;        @last_tool_calls        || []; end
       def last_assistant_content; @last_assistant_content || []; end
+      # Everything the model said in its last call, in order. A turn that also asks for a tool has text too.
+      def last_text;              @last_text.to_s; end
 
       def call(canonical)
         @last_tool_calls        = []
         @last_assistant_content = []
+        @last_text              = ""
         @last_model = @last_raw_finish_reason = @last_refusal = nil
         response    = client.chat(parameters: build_params(canonical))
         @last_usage = extract_usage_from_response(response)
         @last_model             = response["model"]
         @last_raw_finish_reason = response.dig("choices", 0, "finish_reason")
         @last_refusal           = response.dig("choices", 0, "message", "refusal").presence
-        response.dig("choices", 0, "message", "content")
+        (@last_text = response.dig("choices", 0, "message", "content"))
       rescue ::OpenAI::Error, Faraday::Error => provider_error
         raise provider_error_from(provider_error)
       end
@@ -70,6 +73,7 @@ module ActiveAI
       def stream(canonical, &block)
         @last_tool_calls        = []
         @last_assistant_content = []
+        @last_text              = ""
         @last_model = @last_raw_finish_reason = @last_refusal = nil
         accumulator = {}
 
@@ -79,6 +83,7 @@ module ActiveAI
         )
 
         client.chat(parameters: params)
+        @last_text  = accumulator["text"].to_s
         @last_usage = normalize_usage(accumulator)
         record_streamed_facts(accumulator)
         finalize_tool_calls(accumulator)
@@ -98,7 +103,8 @@ module ActiveAI
             "function" => { "name" => tc[:name], "arguments" => tc[:input].to_json }
           }
         }
-        { role: "assistant", content: nil, tool_calls: openai_calls }
+        # What the model said before asking for the tool goes back with it, so on the next turn it knows it already said it.
+        { role: "assistant", content: last_text.presence, tool_calls: openai_calls }
       end
 
       # Formats tool results as individual role:tool messages for OpenAI.
@@ -188,7 +194,10 @@ module ActiveAI
         accumulator["model"] = chunk["model"] if chunk["model"].present?
 
         content = choices.dig(0, "delta", "content")
-        yield content if content.present?
+        if content.present?
+          accumulator["text"] = "#{accumulator["text"]}#{content}"
+          yield content
+        end
 
         if (refusal = choices.dig(0, "delta", "refusal")).present?
           accumulator["refusal"] = "#{accumulator["refusal"]}#{refusal}"

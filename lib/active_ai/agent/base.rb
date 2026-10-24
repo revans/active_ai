@@ -198,6 +198,7 @@ module ActiveAI
 
         @last_tool_call_results = []
         @turn_usages = []
+        @turn_log = []
         params   = build_params
         @last_sent_messages  = params[:messages]
         @last_system_prompt  = params[:system]
@@ -212,34 +213,51 @@ module ActiveAI
         }
 
         iterations = 0
+        completed  = false
 
-        ActiveSupport::Notifications.instrument("agent_stream.active_ai", payload) do |notif|
-          loop do
-            iterations += 1
-            if iterations > MAX_TOOL_ITERATIONS
-              raise ToolLoopError,
-                "#{self.class.name} exceeded #{MAX_TOOL_ITERATIONS} tool call iterations — " \
-                "possible infinite loop. Increase ActiveAI::Agent::Base::MAX_TOOL_ITERATIONS if the " \
-                "agent legitimately needs more turns."
+        begin
+          ActiveSupport::Notifications.instrument("agent_stream.active_ai", payload) do |notif|
+            loop do
+              iterations += 1
+              if iterations > MAX_TOOL_ITERATIONS
+                raise ToolLoopError,
+                  "#{self.class.name} exceeded #{MAX_TOOL_ITERATIONS} tool call iterations — " \
+                  "possible infinite loop. Increase ActiveAI::Agent::Base::MAX_TOOL_ITERATIONS if the " \
+                  "agent legitimately needs more turns."
+              end
+
+              @last_provider_instance = provider_instance
+              turn_text = +""
+              begin
+                @last_provider_instance.stream(params.merge(messages: messages)) do |event|
+                  turn_text << event if event.is_a?(String)
+                  block.call(event)
+                end
+              rescue StandardError
+                # What the model had already said before it broke is still something it said: keep it.
+                record_turn(turn_text, [], usage: nil, interrupted: true) if turn_text.present?
+                raise
+              end
+              @turn_usages << @last_provider_instance.last_usage
+
+              tool_calls = @last_provider_instance.last_tool_calls
+              record_turn(turn_text, tool_calls, usage: @turn_usages.last)
+              break if tool_calls.blank?
+
+              tool_results = execute_tool_calls(tool_calls, &block)
+              messages = messages +
+                [@last_provider_instance.format_assistant_turn(
+                  @last_provider_instance.last_assistant_content,
+                  tool_calls
+                )] +
+                @last_provider_instance.format_tool_result_messages(tool_results)
             end
-
-            @last_provider_instance = provider_instance
-            @last_provider_instance.stream(params.merge(messages: messages), &block)
-            @turn_usages << @last_provider_instance.last_usage
-
-            tool_calls = @last_provider_instance.last_tool_calls
-            break if tool_calls.blank?
-
-            tool_results = execute_tool_calls(tool_calls, &block)
-            messages = messages +
-              [@last_provider_instance.format_assistant_turn(
-                @last_provider_instance.last_assistant_content,
-                tool_calls
-              )] +
-              @last_provider_instance.format_tool_result_messages(tool_results)
+            notif[:usage]      = last_usage
+            notif[:tool_calls] = last_tool_call_results
           end
-          notif[:usage]      = last_usage
-          notif[:tool_calls] = last_tool_call_results
+          completed = true
+        ensure
+          announce_usage(completed: completed)
         end
       end
 
@@ -304,6 +322,18 @@ module ActiveAI
         raise ActiveAI::StructuredOutputError.new(reason, raw: response.text)
       end
 
+      # Says whose call this is. Whatever Hash this returns travels as :context in agent_usage.active_ai and
+      # agent_turn.active_ai, so an app can charge the tokens, or file what was said, under the right person or job
+      # without ActiveAI knowing about either. Override it.
+      #
+      #   def call_context = { user_id: @user.id, run_id: @run.id }
+      def call_context = {}
+
+      # Everything the model said and asked for in the last run, one entry per provider call, oldest first:
+      #   { turn:, text:, tool_calls: [{ id:, name:, input: }], usage:, model:, finish_reason:, final:, interrupted: }
+      # Still there when the run raised, so a rescue can save what was said before the failure.
+      def turn_log = @turn_log.to_a
+
       # Usage data from the last call — full breakdown including cache tokens.
       def last_usage
         @last_provider_instance&.last_usage
@@ -342,6 +372,46 @@ module ActiveAI
         params
       end
 
+      # Fires agent_usage.active_ai once per stream with the tokens every provider call in it used, whether or not the
+      # stream finished: tokens a failed or discarded answer spent are still spent. A tool loop reports its turns
+      # added together. Nothing fires when no provider call got far enough to report usage.
+      # Files one turn: what the model said (every word, in the order it said it), the tools it asked for, and what the
+      # turn cost. Fires agent_turn.active_ai straight away, before any tool runs, so nothing later can lose it.
+      def record_turn(text, tool_calls, usage:, interrupted: false)
+        provider = @last_provider_instance
+        fact = ->(name) { provider.public_send(name) if provider.respond_to?(name) }
+        entry = {
+          turn:          @turn_log.size + 1,
+          text:          text.to_s,
+          tool_calls:    tool_calls.map { |call| call.slice(:id, :name, :input) },
+          usage:         usage,
+          model:         fact.(:last_model),
+          finish_reason: fact.(:last_raw_finish_reason),
+          final:         !interrupted && tool_calls.blank?,
+          interrupted:   interrupted
+        }
+        @turn_log << entry
+        ActiveSupport::Notifications.instrument("agent_turn.active_ai", entry.merge(
+          agent_class: self.class.name, provider: resolved_provider, context: call_context
+        ))
+      end
+
+      def announce_usage(completed:)
+        usage = combined_usage
+        return unless usage
+
+        ActiveSupport::Notifications.instrument("agent_usage.active_ai", {
+          agent_class: self.class.name,
+          provider:    resolved_provider,
+          model:       resolved_model,
+          usage:       usage,
+          turns:       @turn_usages.to_a.compact.size,
+          per_turn:    @turn_usages.to_a.compact,
+          completed:   completed,
+          context:     call_context
+        })
+      end
+
       SUMMED_USAGE_KEYS = %i[input_tokens output_tokens cache_creation_tokens cache_read_tokens reasoning_tokens].freeze
 
       # Token usage added up over every provider call in the last run (a tool loop makes several), with the
@@ -371,7 +441,8 @@ module ActiveAI
           text: text, data: data, data_error: data_error, provider: resolved_provider, requested_model: resolved_model,
           model: fact.(:last_model), finish_reason: finish, raw_finish_reason: fact.(:last_raw_finish_reason),
           refusal: fact.(:last_refusal), usage: usage, turns: @turn_usages.to_a.size, request_id: usage&.dig(:provider_request_id),
-          tool_calls: last_tool_call_results, latency: latency.round(3), start_time: start_time, end_time: end_time
+          tool_calls: last_tool_call_results, latency: latency.round(3), start_time: start_time, end_time: end_time,
+          turn_log: turn_log
         )
       end
 
