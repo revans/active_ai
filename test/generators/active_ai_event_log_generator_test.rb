@@ -44,6 +44,28 @@ class ActiveAIEventLogGeneratorTest < Rails::Generators::TestCase
     assert_no_migration "db/migrate/add_ai_run_id_to_messages.rb"
   end
 
+  test "--timescaledb creates a hypertable: text columns, uuid id, timestamptz, (id, started_at) primary key" do
+    run_generator %w[--timescaledb]
+
+    assert_migration "db/migrate/create_active_ai_events.rb" do |migration|
+      assert_match(/create_table :active_ai_events, id: false/, migration)
+      assert_match(/t\.uuid        :id,\s+null: false, default: -> \{ "gen_random_uuid\(\)" \}/, migration)
+      assert_no_match(/t\.string|t\.datetime/, migration)
+      assert_match(/t\.timestamptz :started_at/, migration)
+      assert_match(/create_hypertable\('active_ai_events', 'started_at', chunk_time_interval => INTERVAL '1 day'\)/, migration)
+      assert_match(/ADD PRIMARY KEY \(id, started_at\)/, migration)
+      assert_match(/def down\n    drop_table :active_ai_events/, migration)
+    end
+  end
+
+  test "--chunk-interval sets the hypertable chunk size, and refuses anything but an interval" do
+    run_generator %w[--timescaledb --chunk-interval=6\ hours]
+    assert_migration "db/migrate/create_active_ai_events.rb", /INTERVAL '6 hours'/
+
+    prepare_destination
+    assert_raises(Thor::Error) { run_generator ["--timescaledb", "--chunk-interval=1 day'); DROP TABLE x; --"], debug: true }
+  end
+
   test "--retain-days and --link-to" do
     run_generator %w[--retain-days=30 --link-to=messages]
 

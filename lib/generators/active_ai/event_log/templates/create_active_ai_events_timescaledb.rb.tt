@@ -1,0 +1,36 @@
+# A TimescaleDB hypertable partitioned on started_at. Text columns, not varchar (TimescaleDB
+# warns on character varying); a hypertable's unique keys must include its partition column,
+# so the primary key is (id, started_at) with a uuid id.
+class CreateActiveAiEvents < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def up
+    create_table :active_ai_events, id: false do |t|
+      t.uuid        :id,             null: false, default: -> { "gen_random_uuid()" }
+      t.text        :name,           null: false
+      t.text        :run_id,         null: false
+      t.text        :span_id
+      t.text        :parent_span_id
+      t.text        :request_id
+      t.text        :job_id
+      t.text        :caller_type
+      t.text        :caller_name
+      t.timestamptz :started_at,     null: false, precision: 6
+      t.timestamptz :finished_at,    null: false, precision: 6
+      t.float       :duration_ms
+      t.text        :error
+      t.jsonb       :payload,        null: false, default: {}
+      t.timestamptz :created_at,     null: false, precision: 6
+    end
+
+    execute "SELECT create_hypertable('active_ai_events', 'started_at', chunk_time_interval => INTERVAL '<%= chunk_interval %>')"
+    execute "ALTER TABLE active_ai_events ADD PRIMARY KEY (id, started_at)"
+
+    add_index :active_ai_events, [:run_id, :started_at]
+    add_index :active_ai_events, :span_id
+    add_index :active_ai_events, :request_id
+    add_index :active_ai_events, [:name, :started_at]
+  end
+
+  def down
+    drop_table :active_ai_events
+  end
+end

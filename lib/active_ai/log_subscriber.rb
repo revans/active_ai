@@ -113,7 +113,7 @@ module ActiveAI
       target = [p[:root_class], p[:root_id], p[:association]].compact.join(" ")
       scopes = Array(p[:scopes]).map { |s| s.is_a?(Hash) ? (s[:name] || s["name"]) : s }
       detail = case p[:outcome]
-               when :read    then "rows=#{p[:returned]}#{p[:truncated] ? '+' : ''}"
+               when :read    then "rows=#{p[:returned]}#{p[:truncated] ? " of #{p[:total]}" : ''}"
                when :catalog then "catalog"
                when :refused then "refused: #{p[:reason]}"
                else p[:exception]&.first || "?"

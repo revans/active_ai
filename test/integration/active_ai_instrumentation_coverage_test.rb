@@ -73,11 +73,11 @@ class ActiveAIInstrumentationCoverageTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.instrument("agent_usage.active_ai", agent_class: "A", model: "m", turns: 2,
                                             usage: { input_tokens: 5, output_tokens: 7 }, completed: true)
     ActiveSupport::Notifications.instrument("record_query.active_ai", root_class: "Shop", root_id: "1",
-                                            association: "orders", outcome: :read, returned: 3, truncated: true)
+                                            association: "orders", outcome: :read, returned: 3, total: 9, truncated: true)
 
     assert_match(/ActiveAI command.*ping/, output.string)
     assert_match(/ActiveAI usage.*turns=2 in=5 out=7/, output.string)
-    assert_match(/ActiveAI query.*Shop 1 orders.*rows=3\+/, output.string)
+    assert_match(/ActiveAI query.*Shop 1 orders.*rows=3 of 9/, output.string)
   ensure
     ActiveSupport::LogSubscriber.logger = previous
   end

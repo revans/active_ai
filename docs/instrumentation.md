@@ -257,6 +257,7 @@ Fires once per `ActiveAI::Tools::RecordQuery` call, inside its `tool_call.active
 | `:context` | Object | The tool's `context:` (typically the user) |
 | `:outcome` | Symbol | `:read`, `:catalog` or `:refused` |
 | `:returned` | Integer | Rows returned (`:read`) |
+| `:total` | Integer | Exact number of matching records (`:read`) |
 | `:truncated` | Boolean | More rows existed than were returned (`:read`) |
 | `:associations` | Array | Associations listed (`:catalog`) |
 | `:reason` | String | Why it was refused (`:refused`): not found, not readable, a write attempt, a timeout |

@@ -20,9 +20,14 @@ module ActiveAI
                                  desc: "Days ActiveAiEventPruneJob keeps events for"
       class_option :link_to,     type: :string,  default: nil,
                                  desc: "Your own table (e.g. messages) to add an ai_run_id column to"
+      class_option :timescaledb,    type: :boolean, default: false,
+                                    desc: "Create active_ai_events as a TimescaleDB hypertable partitioned on started_at"
+      class_option :chunk_interval, type: :string,  default: "1 day",
+                                    desc: "Hypertable chunk interval, with --timescaledb"
 
       def create_migration_file
-        migration_template "create_active_ai_events.rb.tt", "db/migrate/create_active_ai_events.rb"
+        source = options[:timescaledb] ? "create_active_ai_events_timescaledb.rb.tt" : "create_active_ai_events.rb.tt"
+        migration_template source, "db/migrate/create_active_ai_events.rb"
       end
 
       def create_models
@@ -57,6 +62,15 @@ module ActiveAI
       def database_name = options[:database]
       def retain_days   = options[:retain_days].to_i
       def link_table    = options[:link_to].presence&.underscore&.pluralize
+
+      def chunk_interval
+        interval = options[:chunk_interval].to_s
+        unless interval.match?(/\A\d+ (second|minute|hour|day|week|month)s?\z/)
+          raise Thor::Error, "--chunk-interval must look like \"1 day\" or \"6 hours\", got #{interval.inspect}"
+        end
+
+        interval
+      end
     end
   end
 end

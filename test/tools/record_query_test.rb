@@ -147,6 +147,16 @@ class ActiveAI::Tools::RecordQueryTest < ActiveSupport::TestCase
 
     assert_equal 1, result["returned"]
     assert_equal true, result["truncated"]
+    assert_equal 2, result["total"], "a truncated read still says exactly how many matched"
+  end
+
+  test "total counts the scoped, root-bound records, and is the row count when nothing was cut" do
+    3.times { |i| @mine.orders.create!(number: "M-S#{i}", status: "shipped", placed_on: Date.new(2026, 10, 3)) }
+    capped = call(tool(max_limit: 2), root_id: @mine.id.to_s, association: "orders", scopes: [{ "name" => "shipped" }])
+    whole  = call(tool, root_id: @mine.id.to_s, association: "orders", scopes: [{ "name" => "shipped" }])
+
+    assert_equal [2, 4, true], capped.values_at("returned", "total", "truncated"), "4 of mine are shipped; theirs is not counted"
+    assert_equal [4, 4, false], whole.values_at("returned", "total", "truncated")
   end
 
   test "roots must be a relation" do

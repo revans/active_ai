@@ -24,7 +24,8 @@ module ActiveAI
       tool_name "query_records"
       description "Read records from the application's database. Call with only root_id to list " \
                   "what can be read under that root: each association with its scopes and returned " \
-                  "attributes. Then call with an association, and optionally scopes to narrow it."
+                  "attributes. Then call with an association, and optionally scopes to narrow it. " \
+                  "The result's total is the exact number of matching records, even when fewer were returned."
 
       param :root_id,     type: :string,  description: "Id of the record to read under"
       param :association, type: :string,  description: "Association to read; omit to list what is readable", required: false
@@ -88,7 +89,7 @@ module ActiveAI
         if result.key?(:error)
           { outcome: :refused, reason: result[:error] }
         elsif result.key?(:records)
-          { outcome: :read, returned: result[:returned], truncated: result[:truncated] }
+          { outcome: :read, returned: result[:returned], total: result[:total], truncated: result[:truncated] }
         else
           { outcome: :catalog, associations: result[:associations].map { |entry| entry[:association] } }
         end
@@ -146,7 +147,11 @@ module ActiveAI
           model.ai_readable_attributes.to_h { |attribute| [attribute, record.public_send(attribute)] }
         end
 
-        { records: rows, returned: rows.size, truncated: fetched.size > limit }
+        truncated = fetched.size > limit
+        # Counted only when the rows ran past the limit; otherwise the rows are the total.
+        total = truncated ? relation.unscope(:order).count(:all) : rows.size
+
+        { records: rows, returned: rows.size, total: total, truncated: truncated }
       end
 
       def readable_associations(root)

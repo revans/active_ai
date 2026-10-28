@@ -203,6 +203,8 @@ rails generate active_ai:event_log
 rails generate active_ai:event_log --database=logs      # a database.yml entry other than primary
 rails generate active_ai:event_log --retain-days=30     # how long the prune job keeps events (default 90)
 rails generate active_ai:event_log --link-to=messages   # add ai_run_id to your own chat table
+rails generate active_ai:event_log --timescaledb        # a TimescaleDB hypertable (PostgreSQL + TimescaleDB)
+rails generate active_ai:event_log --timescaledb --chunk-interval="6 hours"
 rails db:migrate
 ```
 
@@ -222,6 +224,8 @@ Stores every ActiveAI event as a row, so a run can be rebuilt from its prompts, 
 They hold different things. Your chat table is the conversation the user sees, kept as long as the product needs it. The event log is what went to the model — system prompt, skills, tool definitions, tool results, every intermediate turn — kept for tracing, then pruned. Only the user's message and the final answer appear in both. Connect them by id rather than copying: save `agent.run_id` (or `response.run_id`) in your row's `ai_run_id`, and `AiEvent.for_run(row.ai_run_id)` finds everything behind it.
 
 Within the log, each piece is stored once: a request stores only the messages new since the stream's previous one, settings go out on a stream's first request only, and `AiEvent.request_for(span_id)` puts a full request back together.
+
+With `--timescaledb`, `active_ai_events` is a hypertable partitioned on `started_at` (chunks of `--chunk-interval`, default `1 day`): `text` columns rather than `varchar`, `timestamptz` times, and a uuid `id` defaulting to `gen_random_uuid()`, because a hypertable's unique keys must include its partition column — the primary key is `(id, started_at)`. `AiEvent.record`, `for_run` and `prune` work against that composite key unchanged.
 
 Recording never raises into the AI call: a failed insert is logged and dropped. The separate pool opens its own connections, so count it when sizing the database's connection limit. Payloads hold full prompts and answers — give the table the same retention and access rules as the data that goes into prompts.
 

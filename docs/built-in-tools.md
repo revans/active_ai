@@ -169,6 +169,6 @@ The model calls `query_records(root_id:)` to see what it can read under a root, 
 - **The root is yours to bound.** The root id is looked up only within `roots:`; one outside it is "not found", whether or not it exists.
 - **Results stay under the root.** After the model's scopes are applied, the association is re-applied as `WHERE id IN (...)`, so even a declared scope that calls `unscoped` cannot return another root's records.
 - **No writes.** Everything runs inside `ActiveRecord::Base.while_preventing_writes`; on PostgreSQL, also inside a `READ ONLY` transaction with a statement timeout (5 s by default, `statement_timeout_ms:`). The PostgreSQL transaction is skipped when the call is already inside a transaction.
-- **Bounded output.** At most 50 rows by default and never more than `max_limit:` (200); the result says when it truncated.
+- **Bounded output.** At most 50 rows by default and never more than `max_limit:` (200). The result carries `returned`, `truncated` and `total` — the exact number of matching records — so "how many" stays right past the limit. The count runs only when the rows were cut short.
 
 Errors the model can fix (an unknown scope, wrong arguments, a timeout) come back as `{ "error": "..." }`. A declaration that cannot work — an association that is not `has_many`, a target model without `ActiveAI::Readable`, a declared method that does not return a relation of its model, a composite primary key — raises `ActiveAI::ConfigurationError`.
