@@ -1,0 +1,11 @@
+# Records every ActiveAI event as an AiEvent row. Recording never raises into the AI call.
+#
+# agent_complete and agent_stream repeat what agent_request and agent_turn already hold;
+# add them here to store each prompt and answer once.
+skipped = %w[]
+
+ActiveSupport::Notifications.subscribe(/\.active_ai\z/) do |event|
+  next if skipped.include?(event.name.delete_suffix(".active_ai"))
+
+  AiEvent.record(event)
+end

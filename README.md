@@ -100,6 +100,7 @@ end
 | Memory | Recall, persist, vector search, injection | [docs/memory.md](docs/memory.md) |
 | Streaming | SSE streaming in controllers | [docs/streaming.md](docs/streaming.md) |
 | Credentials | Per-user API key storage | [docs/credentials.md](docs/credentials.md) |
+| Event log | `rails g active_ai:event_log` stores every prompt, answer and tool call, tied by run and span ids | [docs/generators.md](docs/generators.md#active_aievent_log) |
 | Generators | All generator commands | [docs/generators.md](docs/generators.md) |
 | Testing | TestHelper, stubs, fixtures | [docs/testing.md](docs/testing.md) |
 

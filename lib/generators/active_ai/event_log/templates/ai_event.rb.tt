@@ -1,0 +1,15 @@
+# One ActiveAI event: a prompt sent (agent_request), an answer (agent_turn), a tool call,
+# a query, a workflow step. Every event of a run shares its run_id; a provider call's
+# request and answer share a span_id.
+#
+#   AiEvent.for_run(agent.run_id)
+#   AiEvent.for_request(request.request_id)
+class AiEvent < AiEventRecord
+  include ActiveAI::EventLog
+
+  self.table_name = "active_ai_events"
+
+  # Payloads hold full prompts and answers. Drop or redact what must not be stored:
+  #
+  #   def self.filter_payload(name, payload) = payload.except(:source_files)
+end

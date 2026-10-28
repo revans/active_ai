@@ -1,0 +1,29 @@
+class CreateActiveAiEvents < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :active_ai_events do |t|
+      t.string   :name,           null: false
+      t.string   :run_id,         null: false
+      t.string   :span_id
+      t.string   :parent_span_id
+      t.string   :request_id
+      t.string   :job_id
+      t.string   :caller_type
+      t.string   :caller_name
+      t.datetime :started_at,     null: false, precision: 6
+      t.datetime :finished_at,    null: false, precision: 6
+      t.float    :duration_ms
+      t.text     :error
+      if connection.adapter_name.match?(/postg/i)
+        t.jsonb :payload, null: false, default: {}
+      else
+        t.json  :payload, null: false
+      end
+      t.datetime :created_at,     null: false
+    end
+
+    add_index :active_ai_events, [:run_id, :started_at]
+    add_index :active_ai_events, :span_id
+    add_index :active_ai_events, :request_id
+    add_index :active_ai_events, [:name, :started_at]
+  end
+end

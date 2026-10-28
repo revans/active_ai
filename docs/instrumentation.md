@@ -19,7 +19,7 @@ Every event, and every line the log subscriber writes, carries the same ids:
 
 The ids are ActiveAI's own, minted before anything is sent. Before each provider call, `agent_request.active_ai` fires with the full request — prompt, tools and settings — under that call's `span_id`; when the answer comes back — or the call fails — `agent_turn.active_ai` fires under the same `span_id`, and the same entry lands in `Response#turn_log`. The provider's own id (`provider_request_id`) is recorded beside them when the provider answered. It is never the key: a call that timed out has none, and its prompt is still on record.
 
-To keep the full picture, subscribe and store the payloads. The log subscriber writes the ids and counts only, never prompt text, model output or row data:
+To keep the full picture, store the payloads: `rails generate active_ai:event_log` creates the table, model and subscriber (see [generators](generators.md#active_aievent_log)), or subscribe yourself. The log subscriber writes the ids and counts only, never prompt text, model output or row data:
 
 ```ruby
 ActiveSupport::Notifications.subscribe(/\.active_ai\z/) do |name, _start, _finish, _id, payload|
