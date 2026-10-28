@@ -34,6 +34,16 @@ credentials generators crashing.
   `NameError` and renamed its own classes before tracing it to the gem. Say it up front in the README and the install
   generator's output, and decide whether an app can opt out.
 
+- **RecordQuery's database-level guards depend on how it is called.** The READ ONLY transaction and the statement
+  timeout apply only when no transaction is open; called inside an app transaction, only `while_preventing_writes`
+  and the declared-scope allowlist protect it (Atlas F-066 security review; unreachable in Atlas today). Use a
+  savepoint with `SET LOCAL statement_timeout` and `SET TRANSACTION READ ONLY` where PostgreSQL allows it, or raise
+  when called inside a transaction, so the guarantee does not depend on the caller.
+
+- **Prune hypertables by dropping chunks.** With `--timescaledb`, `AIEvent.prune` still deletes rows in batches;
+  `drop_chunks` (or a TimescaleDB retention policy) removes whole days almost for free and leaves no bloat. Have the
+  generated prune job use it when the table is a hypertable (Atlas F-066 performance review).
+
 - **Hard to know what a generator will produce without running it.** Atlas's architect could not run the event-log
   generator, so it designed the TimescaleDB changes from reading templates. Document each generator's output with its
   options (a rendered example per option set in `docs/generators.md`), so a plan can be checked against the real output.
