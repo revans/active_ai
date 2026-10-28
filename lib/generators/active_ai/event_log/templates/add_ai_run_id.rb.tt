@@ -1,6 +1,6 @@
 # Ties each row to the ActiveAI run that produced it, so the prompts, answers and tool
-# calls behind it can be found in active_ai_events: AiEvent.for_run(row.ai_run_id).
-class AddAiRunIdTo<%= link_table.camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+# calls behind it can be found in active_ai_events: <%= event_class %>.for_run(row.ai_run_id).
+class <%= "add_ai_run_id_to_#{link_table}".camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     add_column :<%= link_table %>, :ai_run_id, :string
     add_index  :<%= link_table %>, :ai_run_id

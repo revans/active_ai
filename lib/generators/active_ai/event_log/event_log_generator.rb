@@ -12,12 +12,12 @@ module ActiveAI
       namespace "active_ai:event_log"
       include ActiveRecord::Generators::Migration
       source_root File.expand_path("templates", __dir__)
-      desc "Creates the active_ai_events table, the AiEvent model, and the subscriber that records ActiveAI's events."
+      desc "Creates the active_ai_events table, the AIEvent model, and the subscriber that records ActiveAI's events."
 
       class_option :database,    type: :string,  default: "primary",
-                                 desc: "Name of the database.yml entry AiEventRecord connects to"
+                                 desc: "Name of the database.yml entry AIEventRecord connects to"
       class_option :retain_days, type: :numeric, default: 90,
-                                 desc: "Days ActiveAiEventPruneJob keeps events for"
+                                 desc: "Days ActiveAIEventPruneJob keeps events for"
       class_option :link_to,     type: :string,  default: nil,
                                  desc: "Your own table (e.g. messages) to add an ai_run_id column to"
       class_option :timescaledb,    type: :boolean, default: false,
@@ -53,13 +53,20 @@ module ActiveAI
         return unless behavior == :invoke
 
         say "\nSchedule the prune job, e.g. in config/recurring.yml (Solid Queue):", :green
-        say "  prune_active_ai_events:\n    class: ActiveAiEventPruneJob\n    schedule: every day at 3am"
+        say "  prune_active_ai_events:\n    class: #{prune_job_class}\n    schedule: every day at 3am"
         say "Save agent.run_id into #{link_table}.ai_run_id where you store the message." if link_table
       end
 
       private
 
       def database_name = options[:database]
+
+      # ActiveAI registers the "AI" acronym, so Rails expects ai_event.rb to define AIEvent.
+      # Derived from the file names rather than written out, so they follow the app's own
+      # inflections whatever they are.
+      def event_class     = "ai_event".camelize
+      def record_class    = "ai_event_record".camelize
+      def prune_job_class = "active_ai_event_prune_job".camelize
       def retain_days   = options[:retain_days].to_i
       def link_table    = options[:link_to].presence&.underscore&.pluralize
 

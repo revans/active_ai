@@ -1,7 +1,7 @@
 # SQLite compatibility note: jsonb is not supported by SQLite.
 # Using `text :summary` with `serialize :summary, coder: JSON` on the model.
 # When migrating to PostgreSQL, change to `jsonb :summary, default: {}`.
-class CreateActiveAiMemories < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class <%= "create_active_ai_memories".camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     create_table :active_ai_memories do |t|
       t.string  :user_type

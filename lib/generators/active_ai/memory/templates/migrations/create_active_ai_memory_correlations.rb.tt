@@ -1,4 +1,4 @@
-class CreateActiveAiMemoryCorrelations < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class <%= "create_active_ai_memory_correlations".camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     create_table :active_ai_memory_correlations do |t|
       t.bigint :memory_a_id, null: false

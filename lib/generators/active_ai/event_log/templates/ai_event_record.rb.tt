@@ -1,7 +1,7 @@
-# AiEvent's own connection pool. An event written through the app's connection would be
+# <%= event_class %>'s own connection pool. An event written through the app's connection would be
 # rolled back with the app's transaction — and a failed run is the one you want to read.
 # This pool holds separate connections to the same database, so events commit on their own.
-class AiEventRecord < ActiveRecord::Base
+class <%= record_class %> < ActiveRecord::Base
   self.abstract_class = true
 
   connects_to database: { writing: :<%= database_name %> }

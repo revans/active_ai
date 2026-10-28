@@ -23,7 +23,7 @@ To keep the full picture, store the payloads: `rails generate active_ai:event_lo
 
 ```ruby
 ActiveSupport::Notifications.subscribe(/\.active_ai\z/) do |name, _start, _finish, _id, payload|
-  AiEvent.create!(name: name, run_id: payload[:run_id], span_id: payload[:span_id],
+  AIEvent.create!(name: name, run_id: payload[:run_id], span_id: payload[:span_id],
                   parent_span_id: payload[:parent_span_id], payload: payload.except(:context))
 end
 ```
@@ -34,7 +34,7 @@ Use a run id of your own with `ActiveAI::Instrumentation.with_run(run_id: "...")
 
 ### `agent_request.active_ai`
 
-Fires before every provider call, sharing its `span_id` with the `agent_turn.active_ai` that follows. Between them, a stream's request events carry everything ActiveAI hands the provider — the provider builds its HTTP body from exactly these — each piece once: the settings on the first request of the stream (they do not change within it), and on every request only the messages added since the one before. `AiEvent.request_for(span_id)` (from [`active_ai:event_log`](generators.md#active_aievent_log)) rebuilds the full request a call sent. To rebuild one yourself, take the stream's requests — same `run_id` and `parent_span_id` — in `turn` order, append their `messages`, and check each `messages_before` against the count so far.
+Fires before every provider call, sharing its `span_id` with the `agent_turn.active_ai` that follows. Between them, a stream's request events carry everything ActiveAI hands the provider — the provider builds its HTTP body from exactly these — each piece once: the settings on the first request of the stream (they do not change within it), and on every request only the messages added since the one before. `AIEvent.request_for(span_id)` (from [`active_ai:event_log`](generators.md#active_aievent_log)) rebuilds the full request a call sent. To rebuild one yourself, take the stream's requests — same `run_id` and `parent_span_id` — in `turn` order, append their `messages`, and check each `messages_before` against the count so far.
 
 | Key | Type | Description |
 |---|---|---|

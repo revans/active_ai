@@ -1,7 +1,7 @@
 # A TimescaleDB hypertable partitioned on started_at. Text columns, not varchar (TimescaleDB
 # warns on character varying); a hypertable's unique keys must include its partition column,
 # so the primary key is (id, started_at) with a uuid id.
-class CreateActiveAiEvents < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class <%= "create_active_ai_events".camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def up
     create_table :active_ai_events, id: false do |t|
       t.uuid        :id,             null: false, default: -> { "gen_random_uuid()" }

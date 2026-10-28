@@ -2,10 +2,10 @@ module ActiveAI
   # Stores ActiveAI's events as rows, so a run can be rebuilt from its prompts, answers,
   # tool calls and queries. Include it in the model `rails g active_ai:event_log` generates.
   #
-  #   ActiveSupport::Notifications.subscribe(/\.active_ai\z/) { |event| AiEvent.record(event) }
+  #   ActiveSupport::Notifications.subscribe(/\.active_ai\z/) { |event| AIEvent.record(event) }
   #
-  #   AiEvent.for_run(response.run_id)   # every event of a run, oldest first
-  #   AiEvent.request_for(span_id)        # the full request one provider call sent
+  #   AIEvent.for_run(response.run_id)   # every event of a run, oldest first
+  #   AIEvent.request_for(span_id)        # the full request one provider call sent
   #
   # Recording never raises into the AI call it is logging: a failed insert is logged and
   # dropped. Override filter_payload to drop or redact keys before they are stored.
@@ -67,7 +67,7 @@ module ActiveAI
 
       # Deletes events that started before older_than ago, in batches. Returns how many.
       #
-      #   AiEvent.prune(older_than: 90.days)
+      #   AIEvent.prune(older_than: 90.days)
       def prune(older_than:)
         where(started_at: ...older_than.ago).in_batches(of: 10_000).delete_all
       end

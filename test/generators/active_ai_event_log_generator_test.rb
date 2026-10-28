@@ -15,11 +15,11 @@ class ActiveAIEventLogGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/create_active_ai_events.rb", /create_table :active_ai_events/
     assert_migration "db/migrate/create_active_ai_events.rb", /add_index :active_ai_events, \[:run_id, :started_at\]/
     assert_file "app/models/ai_event_record.rb", /connects_to database: \{ writing: :primary \}/
-    assert_file "app/models/ai_event.rb", /class AiEvent < AiEventRecord/, /include ActiveAI::EventLog/
-    assert_file "config/initializers/active_ai_event_log.rb", /subscribe\(\/\\\.active_ai\\z\/\)/, /AiEvent\.record\(event\)/
+    assert_file "app/models/ai_event.rb", /class AIEvent < AIEventRecord/, /include ActiveAI::EventLog/
+    assert_file "config/initializers/active_ai_event_log.rb", /subscribe\(\/\\\.active_ai\\z\/\)/, /AIEvent\.record\(event\)/
   end
 
-  test "the generated AiEvent keeps a tool's name and arguments but not its result" do
+  test "the generated AIEvent keeps a tool's name and arguments but not its result" do
     run_generator
 
     source = File.read(File.join(destination_root, "app/models/ai_event.rb"))
@@ -40,7 +40,7 @@ class ActiveAIEventLogGeneratorTest < Rails::Generators::TestCase
     run_generator
 
     assert_file "config/initializers/active_ai_event_log.rb", /skipped = %w\[agent_complete agent_stream\]/
-    assert_file "app/jobs/active_ai_event_prune_job.rb", /RETAIN = 90\.days/, /AiEvent\.prune/
+    assert_file "app/jobs/active_ai_event_prune_job.rb", /RETAIN = 90\.days/, /AIEvent\.prune/
     assert_no_migration "db/migrate/add_ai_run_id_to_messages.rb"
   end
 
@@ -71,7 +71,7 @@ class ActiveAIEventLogGeneratorTest < Rails::Generators::TestCase
 
     assert_file "app/jobs/active_ai_event_prune_job.rb", /RETAIN = 30\.days/
     assert_migration "db/migrate/add_ai_run_id_to_messages.rb",
-                     /class AddAiRunIdToMessages/, /add_column :messages, :ai_run_id, :string/, /add_index  :messages, :ai_run_id/
+                     /class AddAIRunIdToMessages/, /add_column :messages, :ai_run_id, :string/, /add_index  :messages, :ai_run_id/
   end
 
   test "every generated Ruby file is valid Ruby" do

@@ -1,4 +1,4 @@
-class EnablePgvector < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class <%= "enable_pgvector".camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def up
     enable_extension "vector"
   end

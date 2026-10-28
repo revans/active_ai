@@ -1,4 +1,4 @@
-class CreateActiveAiEvents < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class <%= "create_active_ai_events".camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     create_table :active_ai_events do |t|
       t.string   :name,           null: false

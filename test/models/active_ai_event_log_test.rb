@@ -23,7 +23,7 @@ end
 ActiveRecord::Schema.verbose = true
 
 class ActiveAIEventLogTest < ActiveSupport::TestCase
-  # The generated AiEvent runs on its own connection pool; the in-memory test database
+  # The generated AIEvent runs on its own connection pool; the in-memory test database
   # cannot be shared across pools, so this one uses the default connection.
   class Event < ActiveRecord::Base
     include ActiveAI::EventLog

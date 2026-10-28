@@ -1,4 +1,4 @@
-class CreateActiveAiMemoryFlags < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class <%= "create_active_ai_memory_flags".camelize %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     create_table :active_ai_memory_flags do |t|
       t.bigint :memory_id, null: false

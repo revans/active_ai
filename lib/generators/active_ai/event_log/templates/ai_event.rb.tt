@@ -2,9 +2,9 @@
 # a query, a workflow step. Every event of a run shares its run_id; a provider call's
 # request and answer share a span_id.
 #
-#   AiEvent.for_run(agent.run_id)
-#   AiEvent.for_request(request.request_id)
-class AiEvent < AiEventRecord
+#   <%= event_class %>.for_run(agent.run_id)
+#   <%= event_class %>.for_request(request.request_id)
+class <%= event_class %> < <%= record_class %>
   include ActiveAI::EventLog
 
   self.table_name = "active_ai_events"

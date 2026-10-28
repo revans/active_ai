@@ -1,9 +1,9 @@
 # Deletes ActiveAI events older than the retention window. The log is for tracing and
 # debugging; the conversation itself belongs in the app's own tables.
-class ActiveAiEventPruneJob < ApplicationJob
+class <%= prune_job_class %> < ApplicationJob
   RETAIN = <%= retain_days %>.days
 
   def perform(older_than: RETAIN)
-    AiEvent.prune(older_than: older_than)
+    <%= event_class %>.prune(older_than: older_than)
   end
 end
