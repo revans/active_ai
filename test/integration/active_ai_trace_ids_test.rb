@@ -56,6 +56,9 @@ class ActiveAITraceIdsTest < ActiveSupport::TestCase
     assert_equal turns.map { |t| t[:span_id] }, agent.last_response.turn_log.map { |t| t[:span_id] }
     assert_equal [run_id], agent.last_response.turn_log.map { |t| t[:run_id] }.uniq
     assert_equal "when do we ship?", requests.first[:messages].last[:content]
+    assert_equal agent.send(:build_params).except(:messages), requests.first.slice(*agent.send(:build_params).except(:messages).keys),
+                 "the request event carries every setting ActiveAI hands the provider"
+    assert_equal ["lookup"], requests.first[:tools].map { |tool| tool[:name] }
 
     complete = events.find { |name, _| name == "agent_complete" }.last
     tool     = events.find { |name, _| name == "tool_call" }.last

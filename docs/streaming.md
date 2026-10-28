@@ -113,6 +113,14 @@ The base implementation is a no-op — override it only if you want async memory
 
 ## Client disconnects
 
+`stream_agent` runs as one ActiveAI run, `after_stream` and `on_error` included, so save `agent.run_id` with the message you persist there: it is the `run_id` on every event and log line of the stream, and those events also carry the Rails `request_id`, even though `ActionController::Live` runs the action on its own thread. See [Tying prompts, answers and logs together](instrumentation.md#tying-prompts-answers-and-logs-together).
+
+```ruby
+stream_agent(agent) do |full_response|
+  @conversation.messages.create!(role: "assistant", content: full_response, ai_run_id: agent.run_id)
+end
+```
+
 If the client disconnects mid-stream, `stream_agent` catches the disconnect gracefully. The `after_stream` block still runs with whatever response was accumulated before the disconnect. This means database writes (saving the partial message) happen even on disconnect.
 
 ---

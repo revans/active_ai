@@ -17,7 +17,7 @@ Every event, and every line the log subscriber writes, carries the same ids:
 | `:parent_span_id` | The span this one runs under, so the run can be rebuilt as a tree. |
 | `:request_id` / `:job_id` | The Rails request or Active Job the run happened in, when there is one, so AI lines filter alongside the app's own. They sit beside `run_id`; one request can hold several runs. |
 
-The ids are ActiveAI's own, minted before anything is sent. Before each provider call, `agent_request.active_ai` fires with the exact prompt under that call's `span_id`; when the answer comes back — or the call fails — `agent_turn.active_ai` fires under the same `span_id`, and the same entry lands in `Response#turn_log`. The provider's own id (`provider_request_id`) is recorded beside them when the provider answered. It is never the key: a call that timed out has none, and its prompt is still on record.
+The ids are ActiveAI's own, minted before anything is sent. Before each provider call, `agent_request.active_ai` fires with the full request — prompt, tools and settings — under that call's `span_id`; when the answer comes back — or the call fails — `agent_turn.active_ai` fires under the same `span_id`, and the same entry lands in `Response#turn_log`. The provider's own id (`provider_request_id`) is recorded beside them when the provider answered. It is never the key: a call that timed out has none, and its prompt is still on record.
 
 To keep the full picture, subscribe and store the payloads. The log subscriber writes the ids and counts only, never prompt text, model output or row data:
 
@@ -28,13 +28,13 @@ ActiveSupport::Notifications.subscribe(/\.active_ai\z/) do |name, _start, _finis
 end
 ```
 
-Use a run id of your own with `ActiveAI::Instrumentation.with_run(run_id: "...") { ... }`.
+Use a run id of your own with `ActiveAI::Instrumentation.with_run(run_id: "...") { ... }`. Save `agent.run_id` (or `response.run_id`) with whatever the app keeps from a run — a message, an audit row — to find the run again. `stream_agent` runs as one run, including its `after_stream` and `on_error` blocks, and keeps the Rails `request_id` under `ActionController::Live`'s own thread.
 
 ## Event reference
 
 ### `agent_request.active_ai`
 
-Fires before every provider call, with the exact prompt. It shares its `span_id` with the `agent_turn.active_ai` that follows.
+Fires before every provider call with everything ActiveAI hands the provider — the provider builds its HTTP body from exactly these, so the call can be replayed from the event alone. It shares its `span_id` with the `agent_turn.active_ai` that follows.
 
 | Key | Type | Description |
 |---|---|---|
@@ -42,9 +42,15 @@ Fires before every provider call, with the exact prompt. It shares its `span_id`
 | `:provider` | Symbol | Provider the call goes to |
 | `:model` | String | Model requested |
 | `:turn` | Integer | 1 for the first provider call of the run, then 2, and so on |
-| `:system` | String | The system prompt sent |
+| `:system` | String | The system prompt |
+| `:skills` | Array | Skills sent with it, `{ name:, content: }` |
+| `:source_files` | Array | Source files sent with it |
 | `:messages` | Array | The messages sent, including earlier turns and tool results |
-| `:tools` | Array | Names of the tools offered |
+| `:tools` | Array | Full definitions of the tools offered: name, description, input schema |
+| `:max_tokens` | Integer\|nil | Output limit (`nil` for `:unlimited`) |
+| `:response_schema` | Hash\|nil | The structured-output schema, when the agent declares one |
+| `:options` | Hash\|nil | Provider options (`provider_options`) for this provider |
+| `:cacheable` | Hash | Which sections were marked for prompt caching |
 | `:context` | Hash | Whatever the agent's `#call_context` returns |
 
 ### `agent_complete.active_ai`

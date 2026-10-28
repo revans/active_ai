@@ -29,7 +29,14 @@ module ActiveAI
       # caught and logged here rather than left to propagate: a bug in the
       # caller's own bookkeeping must not prevent the client from getting its
       # error event and terminal [DONE].
+      #
+      # The whole call is one ActiveAI run, so after_stream and on_error run inside it:
+      # what they save can carry agent.run_id, and what they log carries the run's ids.
       def stream_agent(agent, close: true, on_error: nil, &after_stream)
+        ActiveAI::Instrumentation.with_run { stream_agent_in_run(agent, close: close, on_error: on_error, &after_stream) }
+      end
+
+      def stream_agent_in_run(agent, close:, on_error:, &after_stream)
         response.headers["Content-Type"]      = "text/event-stream"
         response.headers["Cache-Control"]     = "no-cache"
         response.headers["X-Accel-Buffering"] = "no"
@@ -76,6 +83,7 @@ module ActiveAI
           response.stream.close
         end
       end
+      private :stream_agent_in_run
 
       private
 

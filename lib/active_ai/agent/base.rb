@@ -307,6 +307,10 @@ module ActiveAI
 
       attr_reader :last_response
 
+      # ActiveAI's id for this agent's most recent run: the run_id on its events, log lines and turn_log. Save it with
+      # whatever the app stores from the run (a message, an audit row) to find the run again.
+      def run_id = @last_run_id
+
       # Like #complete, for an agent that declares a response_schema: returns the parsed Hash.
       # Raises StructuredOutputError (with the raw text) when there is no usable object: the answer was cut
       # off at the token limit, the model declined, or the text is not a JSON object. Use #generate to
@@ -407,18 +411,25 @@ module ActiveAI
         ), span: span)
       end
 
-      # Fires agent_request.active_ai before a provider call: the exact prompt, under the span its turn will be
-      # filed under, so the prompt is on record even when no answer ever comes back.
+      # Fires agent_request.active_ai before a provider call, under the span its turn will be filed under, so the
+      # request is on record even when no answer ever comes back. It carries everything ActiveAI hands the provider —
+      # the provider builds its HTTP body from exactly these — so the call can be replayed from the event alone.
       def announce_request(params, messages, span)
         ActiveAI::Instrumentation.instrument("agent_request.active_ai", {
-          agent_class: self.class.name,
-          provider:    resolved_provider,
-          model:       resolved_model,
-          turn:        @turn_log.size + 1,
-          system:      params[:system],
-          messages:    messages,
-          tools:       Array(params[:tools]).map { |tool| tool[:name] },
-          context:     call_context
+          agent_class:     self.class.name,
+          provider:        resolved_provider,
+          model:           params[:model],
+          turn:            @turn_log.size + 1,
+          system:          params[:system],
+          skills:          params[:skills],
+          source_files:    params[:source_files],
+          messages:        messages,
+          tools:           params[:tools],
+          max_tokens:      params[:max_tokens],
+          response_schema: params[:response_schema],
+          options:         params[:options],
+          cacheable:       params[:cacheable],
+          context:         call_context
         }, span: span)
       end
 
