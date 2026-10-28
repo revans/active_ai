@@ -18,10 +18,10 @@ module ActiveAI
   Response = Data.define(
     :text, :data, :data_error, :provider, :requested_model, :model,
     :finish_reason, :raw_finish_reason, :refusal, :usage, :turns,
-    :request_id, :tool_calls, :latency, :start_time, :end_time, :turn_log
+    :request_id, :tool_calls, :latency, :start_time, :end_time, :turn_log, :run_id
   ) do
     # turn_log is optional so a Response built before it existed (a test double, a stored one) still loads.
-    def initialize(turn_log: [], **fields) = super(turn_log: turn_log, **fields)
+    def initialize(turn_log: [], run_id: nil, **fields) = super(turn_log: turn_log, run_id: run_id, **fields)
 
     def complete? = finish_reason == :complete
     def truncated? = finish_reason == :truncated

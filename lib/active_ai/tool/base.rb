@@ -78,15 +78,12 @@ module ActiveAI
       def self.inherited(subclass)
         super
         ActiveAI::Instrumentation.instrument_override(subclass, :call) do |_args, inputs, invoke|
-          caller_ctx = ActiveAI::Instrumentation.current_caller
-          ActiveSupport::Notifications.instrument("tool_call.active_ai", {
-            tool_name:   tool_name,
-            tool_class:  self.class.name,
-            input:       inputs,
-            caller_type: caller_ctx&.dig(:type),
-            caller_name: caller_ctx&.dig(:name)
-          }) do |notification|
-            notification[:result] = ActiveAI::Instrumentation.with_caller(type: :tool, name: tool_name) { invoke.call }
+          ActiveAI::Instrumentation.instrument("tool_call.active_ai", {
+            tool_name:  tool_name,
+            tool_class: self.class.name,
+            input:      inputs
+          }, as: { type: :tool, name: tool_name }) do |notification|
+            notification[:result] = invoke.call
           rescue => error
             notification[:result] = "Error: #{error.class} — #{error.message}"
             raise

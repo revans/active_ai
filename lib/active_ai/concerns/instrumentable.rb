@@ -22,14 +22,11 @@ module ActiveAI
       # but orchestrators pass active_ai.orchestrator.dispatch to distinguish dispatches
       # from workflow steps.
       def instrument_step(target_name, input_length:, event: "workflow_step.active_ai")
-        caller_ctx = ActiveAI::Instrumentation.current_caller
-        result     = nil
-        ActiveSupport::Notifications.instrument(event, {
+        result = nil
+        ActiveAI::Instrumentation.instrument(event, {
           source_class: self.class.name,
           step_name:    target_name,
-          input_length: input_length,
-          caller_type:  caller_ctx&.dig(:type),
-          caller_name:  caller_ctx&.dig(:name)
+          input_length: input_length
         }) do |notification|
           result                       = yield notification
           notification[:output_length] = result.to_s.length

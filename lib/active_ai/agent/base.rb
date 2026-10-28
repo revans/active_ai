@@ -216,7 +216,10 @@ module ActiveAI
         completed  = false
 
         begin
-          ActiveSupport::Notifications.instrument("agent_stream.active_ai", payload) do |notif|
+          # Called inside #complete, the agent's span is already open; called directly, stream opens it.
+          span = @completing ? nil : { type: caller_type_sym, name: self.class.name }
+          ActiveAI::Instrumentation.instrument("agent_stream.active_ai", payload, as: span) do |notif|
+            @last_run_id = ActiveAI::Instrumentation.current_run[:run_id]
             loop do
               iterations += 1
               if iterations > MAX_TOOL_ITERATIONS
@@ -228,20 +231,23 @@ module ActiveAI
 
               @last_provider_instance = provider_instance
               turn_text = +""
+              turn_span = ActiveAI::Instrumentation.leaf_span(type: :provider_call, name: resolved_provider)
+              announce_request(params, messages, turn_span)
               begin
                 @last_provider_instance.stream(params.merge(messages: messages)) do |event|
                   turn_text << event if event.is_a?(String)
                   block.call(event)
                 end
-              rescue StandardError
-                # What the model had already said before it broke is still something it said: keep it.
-                record_turn(turn_text, [], usage: nil, interrupted: true) if turn_text.present?
+              rescue StandardError => error
+                # The prompt already went out under this span, so the turn is filed under it too — with what the
+                # model said before it broke, and why it broke.
+                record_turn(turn_text, [], usage: nil, interrupted: true, span: turn_span, error: error)
                 raise
               end
               @turn_usages << @last_provider_instance.last_usage
 
               tool_calls = @last_provider_instance.last_tool_calls
-              record_turn(turn_text, tool_calls, usage: @turn_usages.last)
+              record_turn(turn_text, tool_calls, usage: @turn_usages.last, span: turn_span)
               break if tool_calls.blank?
 
               tool_results = execute_tool_calls(tool_calls, &block)
@@ -254,10 +260,11 @@ module ActiveAI
             end
             notif[:usage]      = last_usage
             notif[:tool_calls] = last_tool_call_results
+            completed = true
+          ensure
+            # Inside the span, so usage is filed under this agent and this run even when the stream raised.
+            announce_usage(completed: completed)
           end
-          completed = true
-        ensure
-          announce_usage(completed: completed)
         end
       end
 
@@ -265,20 +272,20 @@ module ActiveAI
       # Fires active_ai.agent.complete (or active_ai.orchestrator.route for Orchestrator subclasses).
       # before_complete and after_complete callbacks fire around the stream loop.
       def complete
-        caller_ctx = ActiveAI::Instrumentation.current_caller
-        payload    = build_complete_payload(caller_ctx)
-        result     = nil
+        result = nil
 
-        ActiveSupport::Notifications.instrument(complete_event_name, payload) do |notif|
-          ActiveAI::Instrumentation.with_caller(type: caller_type_sym, name: self.class.name) do
-            run_callbacks(:complete) do
-              accumulated_text = String.new
-              stream { |event| accumulated_text << event if event.is_a?(String) }
-              result = accumulated_text
-              finalize_complete_notification(notif, accumulated_text)
-              result
-            end
+        ActiveAI::Instrumentation.instrument(complete_event_name, build_complete_payload(ActiveAI::Instrumentation.current_caller),
+                                             as: { type: caller_type_sym, name: self.class.name }) do |notif|
+          @completing = true
+          run_callbacks(:complete) do
+            accumulated_text = String.new
+            stream { |event| accumulated_text << event if event.is_a?(String) }
+            result = accumulated_text
+            finalize_complete_notification(notif, accumulated_text)
+            result
           end
+        ensure
+          @completing = false
         end
 
         result
@@ -377,10 +384,14 @@ module ActiveAI
       # added together. Nothing fires when no provider call got far enough to report usage.
       # Files one turn: what the model said (every word, in the order it said it), the tools it asked for, and what the
       # turn cost. Fires agent_turn.active_ai straight away, before any tool runs, so nothing later can lose it.
-      def record_turn(text, tool_calls, usage:, interrupted: false)
+      def record_turn(text, tool_calls, usage:, span:, interrupted: false, error: nil)
         provider = @last_provider_instance
         fact = ->(name) { provider.public_send(name) if provider.respond_to?(name) }
         entry = {
+          run_id:        @last_run_id,
+          span_id:       span[:span_id],
+          provider_request_id: usage&.dig(:provider_request_id),
+          error:         error && "#{error.class}: #{error.message}",
           turn:          @turn_log.size + 1,
           text:          text.to_s,
           tool_calls:    tool_calls.map { |call| call.slice(:id, :name, :input) },
@@ -391,16 +402,31 @@ module ActiveAI
           interrupted:   interrupted
         }
         @turn_log << entry
-        ActiveSupport::Notifications.instrument("agent_turn.active_ai", entry.merge(
+        ActiveAI::Instrumentation.instrument("agent_turn.active_ai", entry.merge(
           agent_class: self.class.name, provider: resolved_provider, context: call_context
-        ))
+        ), span: span)
+      end
+
+      # Fires agent_request.active_ai before a provider call: the exact prompt, under the span its turn will be
+      # filed under, so the prompt is on record even when no answer ever comes back.
+      def announce_request(params, messages, span)
+        ActiveAI::Instrumentation.instrument("agent_request.active_ai", {
+          agent_class: self.class.name,
+          provider:    resolved_provider,
+          model:       resolved_model,
+          turn:        @turn_log.size + 1,
+          system:      params[:system],
+          messages:    messages,
+          tools:       Array(params[:tools]).map { |tool| tool[:name] },
+          context:     call_context
+        }, span: span)
       end
 
       def announce_usage(completed:)
         usage = combined_usage
         return unless usage
 
-        ActiveSupport::Notifications.instrument("agent_usage.active_ai", {
+        ActiveAI::Instrumentation.instrument("agent_usage.active_ai", {
           agent_class: self.class.name,
           provider:    resolved_provider,
           model:       resolved_model,
@@ -442,7 +468,7 @@ module ActiveAI
           model: fact.(:last_model), finish_reason: finish, raw_finish_reason: fact.(:last_raw_finish_reason),
           refusal: fact.(:last_refusal), usage: usage, turns: @turn_usages.to_a.size, request_id: usage&.dig(:provider_request_id),
           tool_calls: last_tool_call_results, latency: latency.round(3), start_time: start_time, end_time: end_time,
-          turn_log: turn_log
+          turn_log: turn_log, run_id: @last_run_id
         )
       end
 
@@ -533,10 +559,8 @@ module ActiveAI
           if registered_tool
             registered_tool.call(**tool_call[:input].transform_keys(&:to_sym))
           else
-            caller_ctx = ActiveAI::Instrumentation.current_caller
-            ActiveSupport::Notifications.instrument("tool_call.active_ai", {
+            ActiveAI::Instrumentation.instrument("tool_call.active_ai", {
               tool_name: tool_call[:name], tool_class: nil, input: tool_call[:input],
-              caller_type: caller_ctx&.dig(:type), caller_name: caller_ctx&.dig(:name),
               result: "Unknown tool: #{tool_call[:name]}"
             })
             "Unknown tool: #{tool_call[:name]}"

@@ -53,7 +53,7 @@ module ActiveAI
       # Fires record_query.active_ai with what was asked, for whom (context:), and the
       # outcome — rows returned, truncation, or the refusal — but never the rows.
       def call(root_id:, association: nil, scopes: [], limit: nil)
-        ActiveSupport::Notifications.instrument("record_query.active_ai", {
+        ActiveAI::Instrumentation.instrument("record_query.active_ai", {
           root_class:  @roots.klass.name,
           root_id:     root_id.to_s,
           association: association.presence&.to_s,

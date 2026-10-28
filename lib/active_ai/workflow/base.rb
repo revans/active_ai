@@ -49,19 +49,12 @@ module ActiveAI
       def self.inherited(subclass)
         super
         ActiveAI::Instrumentation.instrument_override(subclass, :run) do |args, _kwargs, invoke|
-          caller_ctx = ActiveAI::Instrumentation.current_caller
-          payload    = {
-            workflow_class: self.class.name,
-            input:          args.first.to_s,
-            caller_type:    caller_ctx&.dig(:type),
-            caller_name:    caller_ctx&.dig(:name)
-          }
-          ActiveSupport::Notifications.instrument("workflow_run.active_ai", payload) do |notif|
-            ActiveAI::Instrumentation.with_caller(type: :workflow, name: self.class.name) do
-              result         = invoke.call
-              notif[:output] = result.to_s
-              result
-            end
+          payload = { workflow_class: self.class.name, input: args.first.to_s }
+          ActiveAI::Instrumentation.instrument("workflow_run.active_ai", payload,
+                                               as: { type: :workflow, name: self.class.name }) do |notif|
+            result         = invoke.call
+            notif[:output] = result.to_s
+            result
           end
         end
       end
@@ -119,16 +112,16 @@ module ActiveAI
         step_names = entries.map { |(target, _)| target.is_a?(Class) ? target.name : target.class.name }
         results    = nil
 
-        ActiveSupport::Notifications.instrument("workflow_parallel_step.active_ai", {
+        ActiveAI::Instrumentation.instrument("workflow_parallel_step.active_ai", {
           workflow_class: self.class.name,
           steps:          step_names,
           count:          entries.length
         }) do |notification|
-          stack   = ActiveAI::Instrumentation.caller_stack.dup
+          snapshot = ActiveAI::Instrumentation.capture
           threads = entries.map do |(target, kwargs)|
             name = target.is_a?(Class) ? target.name : target.class.name
             Thread.new do
-              ActiveAI::Instrumentation.with_stack(stack) { { agent: name, response: step(target, **(kwargs || {})) } }
+              ActiveAI::Instrumentation.restore(snapshot) { { agent: name, response: step(target, **(kwargs || {})) } }
             end
           end
           results                      = threads.map(&:value)

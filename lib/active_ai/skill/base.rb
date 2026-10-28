@@ -79,13 +79,10 @@ module ActiveAI
       # declare keyword parameters on content(); passive skills (no kwargs) are
       # called without args so existing subclasses require no changes.
       def self.to_definition(context = {})
-        caller_ctx = ActiveAI::Instrumentation.current_caller
-        result     = nil
-        ActiveSupport::Notifications.instrument("skill_resolve.active_ai", {
+        result = nil
+        ActiveAI::Instrumentation.instrument("skill_resolve.active_ai", {
           skill_name:  _skill_name,
-          skill_class: name,
-          caller_type: caller_ctx&.dig(:type),
-          caller_name: caller_ctx&.dig(:name)
+          skill_class: name
         }) do |notif|
           params     = method(:content).parameters
           has_kwargs = params.any? { |type, _| [ :key, :keyreq, :keyrest ].include?(type) }

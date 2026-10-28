@@ -18,6 +18,7 @@ response.requested_model    # the model that was asked for (an alias can resolve
 response.usage              # token counts, summed over every provider call in the run
 response.turns              # how many provider calls the run took (more than 1 when tools ran)
 response.request_id         # the provider's id for the final call, for support tickets
+response.run_id             # ActiveAI's own id for the run: the key every event, log line and turn_log entry shares
 response.tool_calls         # tools the agent executed
 response.latency            # seconds the whole run took, measured with a monotonic clock
 response.start_time         # when the run started: UTC, to the millisecond, set by ActiveAI
@@ -49,6 +50,7 @@ symbols become strings, and it is ready to store or log. (In Ruby, `response.fin
   "request_id": "...",         // String or null. The provider's id for the final call.
   "tool_calls": [ ],           // Array. Tools the agent executed: { id, name, result }.
   "turn_log": [ ],             // Array. What the model said and asked for in each turn, in order (below).
+  "run_id": "...",             // String. ActiveAI's own id for the run, shared by every event and log line.
   "latency": 1.045,            // Number. Seconds the whole run took (monotonic clock).
   "start_time": "2026-10-22T19:40:57.278Z", // String. When the run started: ISO 8601, UTC, always 3 millisecond digits.
   "end_time": "2026-10-22T19:40:58.323Z"    // String. When the run ended, same format.
@@ -72,6 +74,7 @@ symbols become strings, and it is ready to store or log. (In Ruby, `response.fin
 | `turns` | integer | no | `0` only when no provider call happened (a stubbed agent). |
 | `request_id` | string | **yes** | Equals `usage.provider_request_id`. |
 | `tool_calls` | array | no (may be `[]`) | Each entry is `{ "id", "name", "result" }`: the tool's *result*, not its input. |
+| `run_id` | string | **yes** | ActiveAI's own id for the run, minted before anything is sent. Every event and log line of the run carries it. See [instrumentation](instrumentation.md#tying-prompts-answers-and-logs-together). |
 | `turn_log` | array | no (may be `[]`) | One entry per provider call, oldest first: what the model said and asked for. See [`turn_log`](#turn_log). |
 | `latency` | number | no | Seconds the run took, rounded to milliseconds. Measured with a monotonic clock. |
 | `start_time` | string | no | When the run started. ISO 8601 UTC with exactly three fractional digits, e.g. `2026-10-22T19:40:57.278Z`. |
@@ -107,6 +110,10 @@ apart, so an app can save every word the model said without guessing where to cu
 
 | Key | Type | Notes |
 |---|---|---|
+| `run_id` | string | The run this turn belongs to (the response's `run_id`). |
+| `span_id` | string | This provider call's own id. The prompt sent for it (`agent_request.active_ai`) carries the same one. |
+| `provider_request_id` | string or null | The provider's id for this call, when it answered. Never the key: a call that failed has none. |
+| `error` | string or null | `"Class: message"` when the call failed. Its prompt is still on record under `span_id`. |
 | `turn` | integer | 1 for the first provider call, then 2, and so on. |
 | `text` | string | Every word the model said in this turn, in order. `""` when it went straight to a tool. |
 | `tool_calls` | array | The tools it asked for this turn: `{ id, name, input }`. Their results are in the response's `tool_calls`. |
@@ -114,7 +121,7 @@ apart, so an app can save every word the model said without guessing where to cu
 | `model` | string or null | The model that served the turn. |
 | `finish_reason` | string or null | The provider's own word for why the turn stopped. |
 | `final` | boolean | `true` for the turn that gave the answer (it asked for no tool). |
-| `interrupted` | boolean | `true` for a turn that broke off mid-answer; `text` is what had been said by then. |
+| `interrupted` | boolean | `true` for a turn that broke off; `text` is what had been said by then (maybe `""`). |
 
 The same entries are published as they happen by the [`agent_turn.active_ai`](instrumentation.md#agent_turnactive_ai)
 event, and `agent.turn_log` returns them even when the run raised, so a failure never loses what was already said.
@@ -166,8 +173,13 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 1,
       "text": "ok",
       "tool_calls": [],
@@ -220,8 +232,13 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 1,
       "text": "ok",
       "tool_calls": [],
@@ -278,8 +295,13 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 1,
       "text": "{\"answer\":\"ok\"}",
       "tool_calls": [],
@@ -334,8 +356,13 @@ Latency and token counts vary run to run.
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 1,
       "text": "{\"answer\":\"ok\"}",
       "tool_calls": [],
@@ -391,8 +418,13 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 1,
       "text": "",
       "tool_calls": [],
@@ -445,8 +477,13 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 1,
       "text": "",
       "tool_calls": [],
@@ -501,8 +538,13 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
   "turns": 1,
   "request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   "tool_calls": [],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "chatcmpl-XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 1,
       "text": "",
       "tool_calls": [],
@@ -561,8 +603,13 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
       "result": "{\"price\":\"$19\"}"
     }
   ],
+  "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
   "turn_log": [
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000001",
+      "provider_request_id": "msg_01YYYYYYYYYYYYYYYYYYYYYYYY",
+      "error": null,
       "turn": 1,
       "text": "Let me check the price.",
       "tool_calls": [
@@ -589,6 +636,10 @@ because the limit was spent on hidden thinking. On OpenAI that is visible in `us
       "interrupted": false
     },
     {
+      "run_id": "0199f2a1-6c3e-7b10-9d4a-5e2f8c1a7b30",
+      "span_id": "0199f2a1-6c41-7c22-8e01-000000000002",
+      "provider_request_id": "msg_01XXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": null,
       "turn": 2,
       "text": "It costs $19.",
       "tool_calls": [],

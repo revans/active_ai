@@ -6,7 +6,46 @@ All events follow Rails convention: `action.active_ai`. `ActiveAI::LogSubscriber
 
 ---
 
+## Tying prompts, answers and logs together
+
+Every event, and every line the log subscriber writes, carries the same ids:
+
+| Key | Means |
+|---|---|
+| `:run_id` | One per top-level ActiveAI call — an agent, workflow, orchestrator, tool or command called from outside ActiveAI. Everything nested under it shares it. A UUIDv7, so it sorts by time. |
+| `:span_id` | One per component invocation (agent, tool, workflow, command) and one per provider call. |
+| `:parent_span_id` | The span this one runs under, so the run can be rebuilt as a tree. |
+| `:request_id` / `:job_id` | The Rails request or Active Job the run happened in, when there is one, so AI lines filter alongside the app's own. They sit beside `run_id`; one request can hold several runs. |
+
+The ids are ActiveAI's own, minted before anything is sent. Before each provider call, `agent_request.active_ai` fires with the exact prompt under that call's `span_id`; when the answer comes back — or the call fails — `agent_turn.active_ai` fires under the same `span_id`, and the same entry lands in `Response#turn_log`. The provider's own id (`provider_request_id`) is recorded beside them when the provider answered. It is never the key: a call that timed out has none, and its prompt is still on record.
+
+To keep the full picture, subscribe and store the payloads. The log subscriber writes the ids and counts only, never prompt text, model output or row data:
+
+```ruby
+ActiveSupport::Notifications.subscribe(/\.active_ai\z/) do |name, _start, _finish, _id, payload|
+  AiEvent.create!(name: name, run_id: payload[:run_id], span_id: payload[:span_id],
+                  parent_span_id: payload[:parent_span_id], payload: payload.except(:context))
+end
+```
+
+Use a run id of your own with `ActiveAI::Instrumentation.with_run(run_id: "...") { ... }`.
+
 ## Event reference
+
+### `agent_request.active_ai`
+
+Fires before every provider call, with the exact prompt. It shares its `span_id` with the `agent_turn.active_ai` that follows.
+
+| Key | Type | Description |
+|---|---|---|
+| `:agent_class` | String | Name of the agent class |
+| `:provider` | Symbol | Provider the call goes to |
+| `:model` | String | Model requested |
+| `:turn` | Integer | 1 for the first provider call of the run, then 2, and so on |
+| `:system` | String | The system prompt sent |
+| `:messages` | Array | The messages sent, including earlier turns and tool results |
+| `:tools` | Array | Names of the tools offered |
+| `:context` | Hash | Whatever the agent's `#call_context` returns |
 
 ### `agent_complete.active_ai`
 
@@ -76,6 +115,9 @@ already said are published too, with `:interrupted` set.
 | `:finish_reason` | String\|nil | The provider's own word for why the turn stopped |
 | `:final` | Boolean | `true` for the turn that gave the answer |
 | `:interrupted` | Boolean | `true` when the call broke off before it finished |
+| `:span_id` | String | The provider call's span — the same as its `agent_request.active_ai` |
+| `:provider_request_id` | String\|nil | The provider's id for the call, when it answered |
+| `:error` | String\|nil | `"Class: message"` when the call failed |
 | `:context` | Hash | Whatever the agent's `#call_context` returns |
 
 ```ruby
@@ -283,7 +325,7 @@ WorkflowClass.run("input")
               └─ tool_call.active_ai    caller_type: :agent,    caller_name: "WritingAgent"
 ```
 
-This is implemented via `ActiveAI::Instrumentation` — a thread-local stack that each component pushes itself onto before yielding control. `parallel_step` carries the stack into each thread it starts, so a step's events still name the workflow. A thread you start yourself begins with an empty stack; carry it with `ActiveAI::Instrumentation.with_stack(stack)`. You can read the current caller anywhere:
+This is implemented via `ActiveAI::Instrumentation` — a thread-local stack that each component pushes itself onto before yielding control. `parallel_step` carries the stack into each thread it starts, so a step's events still name the workflow. A thread you start yourself begins with no run and an empty stack; carry both with `snapshot = ActiveAI::Instrumentation.capture` before spawning and `ActiveAI::Instrumentation.restore(snapshot) { ... }` inside the thread. You can read the current caller anywhere:
 
 ```ruby
 ActiveAI::Instrumentation.current_caller

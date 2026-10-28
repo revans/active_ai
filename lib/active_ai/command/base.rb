@@ -90,16 +90,11 @@ module ActiveAI
       def self.inherited(subclass)
         super
         ActiveAI::Instrumentation.instrument_override(subclass, :call) do |_args, kwargs, invoke|
-          caller_ctx = ActiveAI::Instrumentation.current_caller
-          ActiveSupport::Notifications.instrument("command_call.active_ai", {
+          ActiveAI::Instrumentation.instrument("command_call.active_ai", {
             command_name:  command_name,
             command_class: self.class.name,
-            argument:      kwargs[:argument],
-            caller_type:   caller_ctx&.dig(:type),
-            caller_name:   caller_ctx&.dig(:name)
-          }) do
-            ActiveAI::Instrumentation.with_caller(type: :command, name: command_name) { invoke.call }
-          end
+            argument:      kwargs[:argument]
+          }, as: { type: :command, name: command_name }) { invoke.call }
         end
       end
 
