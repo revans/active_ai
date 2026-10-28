@@ -74,6 +74,26 @@ module ActiveAI
         self._system_prompt = text
       end
 
+      # Every tool call fires tool_call.active_ai, from an agent loop or called directly.
+      def self.inherited(subclass)
+        super
+        ActiveAI::Instrumentation.instrument_override(subclass, :call) do |_args, inputs, invoke|
+          caller_ctx = ActiveAI::Instrumentation.current_caller
+          ActiveSupport::Notifications.instrument("tool_call.active_ai", {
+            tool_name:   tool_name,
+            tool_class:  self.class.name,
+            input:       inputs,
+            caller_type: caller_ctx&.dig(:type),
+            caller_name: caller_ctx&.dig(:name)
+          }) do |notification|
+            notification[:result] = ActiveAI::Instrumentation.with_caller(type: :tool, name: tool_name) { invoke.call }
+          rescue => error
+            notification[:result] = "Error: #{error.class} — #{error.message}"
+            raise
+          end
+        end
+      end
+
       # ── Tool identity DSL ───────────────────────────────────────────────────
 
       def self.call(**inputs)
@@ -98,8 +118,9 @@ module ActiveAI
       #
       #   param :query, type: :string, description: "The search query"
       #   param :limit, type: :integer, description: "Max results", required: false
-      def self.param(name, type:, description:, required: true)
-        self._params = _params + [{ name: name, type: type, description: description, required: required }]
+      #   param :tags,  type: :array,   description: "Tags", items: { type: "string" }
+      def self.param(name, type:, description:, required: true, items: nil)
+        self._params = _params + [{ name: name, type: type, description: description, required: required, items: items }]
       end
 
       # Returns parameters as an Anthropic-compatible properties hash.
@@ -108,6 +129,7 @@ module ActiveAI
       def self.parameters
         _params.each_with_object({}) do |p, hash|
           hash[p[:name]] = { type: p[:type].to_s, description: p[:description] }
+          hash[p[:name]][:items] = p[:items] if p[:items]
         end
       end
 

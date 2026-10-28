@@ -81,6 +81,47 @@ module ActiveAI
             " in=#{usage[:input_tokens] || '?'} out=#{usage[:output_tokens] || '?'}#{tool_note})"
     end
 
+    # agent_turn.active_ai — one provider call inside an agent loop (never logs the text)
+    def agent_turn(event)
+      p     = event.payload
+      tools = (p[:tool_calls] || []).map { |t| t[:name] }
+      tool_note = tools.any? ? " | tools=#{tools.join(',')}" : ""
+      debug "  #{color('ActiveAI turn', CYAN, bold: false)} #{p[:agent_class]} ##{p[:turn]} #{p[:model]}" \
+            " (finish=#{p[:finish_reason] || '?'}#{tool_note})"
+    end
+
+    # agent_usage.active_ai — tokens summed over every turn of one agent run
+    def agent_usage(event)
+      p     = event.payload
+      usage = p[:usage] || {}
+      info "  #{color('ActiveAI usage', CYAN, bold: true)} #{p[:agent_class]} #{p[:model]}" \
+           " (turns=#{p[:turns]} in=#{usage[:input_tokens] || '?'} out=#{usage[:output_tokens] || '?'}" \
+           " cache_read=#{usage[:cache_read_tokens] || 0}#{p[:completed] ? '' : ' | incomplete'})"
+    end
+
+    # command_call.active_ai — a typed chat command dispatched
+    def command_call(event)
+      p      = event.payload
+      caller = p[:caller_type] ? " [#{p[:caller_type]}:#{p[:caller_name]}]" : ""
+      info "  #{color('ActiveAI command', MAGENTA, bold: true)} #{p[:command_name]}" \
+           " (#{event.duration.round(1)}ms)#{caller}"
+    end
+
+    # record_query.active_ai — what RecordQuery read (never the rows)
+    def record_query(event)
+      p      = event.payload
+      target = [p[:root_class], p[:root_id], p[:association]].compact.join(" ")
+      scopes = Array(p[:scopes]).map { |s| s.is_a?(Hash) ? (s[:name] || s["name"]) : s }
+      detail = case p[:outcome]
+               when :read    then "rows=#{p[:returned]}#{p[:truncated] ? '+' : ''}"
+               when :catalog then "catalog"
+               when :refused then "refused: #{p[:reason]}"
+               else p[:exception]&.first || "?"
+               end
+      scope_note = scopes.any? ? " | scopes=#{scopes.join(',')}" : ""
+      info "  #{color('ActiveAI query', MAGENTA, bold: true)} #{target}" \
+           " (#{event.duration.round(1)}ms | #{detail}#{scope_note})"
+    end
   end
 end
 

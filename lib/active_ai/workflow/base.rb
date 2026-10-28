@@ -42,22 +42,28 @@ module ActiveAI
       # The ** absorbs any context kwargs passed by an Orchestrator via context_for.
       # Fires active_ai.workflow.run — direct new(...).run(input) calls bypass this.
       def self.run(input, **)
-        caller_ctx = ActiveAI::Instrumentation.current_caller
-        payload    = {
-          workflow_class: name,
-          input:          input.to_s,
-          caller_type:    caller_ctx&.dig(:type),
-          caller_name:    caller_ctx&.dig(:name)
-        }
-        result = nil
-        ActiveSupport::Notifications.instrument("workflow_run.active_ai", payload) do |notif|
-          ActiveAI::Instrumentation.with_caller(type: :workflow, name: name) do
-            result         = new.run(input)
-            notif[:output] = result.to_s
-            result
+        new.run(input)
+      end
+
+      # Every run fires workflow_run.active_ai, through Workflow.run or new.run.
+      def self.inherited(subclass)
+        super
+        ActiveAI::Instrumentation.instrument_override(subclass, :run) do |args, _kwargs, invoke|
+          caller_ctx = ActiveAI::Instrumentation.current_caller
+          payload    = {
+            workflow_class: self.class.name,
+            input:          args.first.to_s,
+            caller_type:    caller_ctx&.dig(:type),
+            caller_name:    caller_ctx&.dig(:name)
+          }
+          ActiveSupport::Notifications.instrument("workflow_run.active_ai", payload) do |notif|
+            ActiveAI::Instrumentation.with_caller(type: :workflow, name: self.class.name) do
+              result         = invoke.call
+              notif[:output] = result.to_s
+              result
+            end
           end
         end
-        result
       end
 
       # Override in subclasses. Call step() or parallel_step() to coordinate work.
@@ -118,9 +124,12 @@ module ActiveAI
           steps:          step_names,
           count:          entries.length
         }) do |notification|
+          stack   = ActiveAI::Instrumentation.caller_stack.dup
           threads = entries.map do |(target, kwargs)|
             name = target.is_a?(Class) ? target.name : target.class.name
-            Thread.new { { agent: name, response: step(target, **(kwargs || {})) } }
+            Thread.new do
+              ActiveAI::Instrumentation.with_stack(stack) { { agent: name, response: step(target, **(kwargs || {})) } }
+            end
           end
           results                      = threads.map(&:value)
           notification[:results_count] = results.length

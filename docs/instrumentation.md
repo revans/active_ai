@@ -138,7 +138,7 @@ Fires once per meta-tool invocation — each time the orchestrator routes to an 
 
 ### `workflow_run.active_ai`
 
-Fires once per `WorkflowClass.run(input)` call. Only fires for the class-level convenience entry point — `WorkflowClass.new.run(input)` bypasses it.
+Fires once per workflow run, through `WorkflowClass.run(input)` or `WorkflowClass.new.run(input)` — `ActiveAI::Workflow::Base` wraps every subclass's `run`.
 
 | Key | Type | Description |
 |---|---|---|
@@ -181,7 +181,7 @@ Fires once per `parallel_step(...)` call, wrapping the entire concurrent batch.
 
 ### `tool_call.active_ai`
 
-Fires once per tool invocation inside the agentic loop. The `result` key is set even when the tool raises — the error is captured as a string and returned to the model.
+Fires once per tool call, however the tool is invoked: from an agent's tool loop, a workflow step, or `tool.call(...)` directly. `ActiveAI::Tool::Base` wraps every subclass's `call`, so a new tool needs no instrumentation code, and a subclass calling `super` still fires one event. The `result` key is set even when the tool raises — the error is captured as a string (the agent loop returns it to the model). Anything the tool calls in turn sees `caller_type: :tool`. A tool name the model invents, with no tool behind it, fires with `tool_class: nil` and `result: "Unknown tool: ..."`.
 
 | Key | Type | Description |
 |---|---|---|
@@ -189,6 +189,40 @@ Fires once per tool invocation inside the agentic loop. The `result` key is set 
 | `:tool_class` | String | Ruby class name of the tool |
 | `:input` | Hash | Arguments the model passed to the tool |
 | `:result` | String | Return value (or `"Error: ClassName — message"` on exception) |
+| `:caller_type` | Symbol\|nil | Type of the caller |
+| `:caller_name` | String\|nil | Class name of the caller |
+
+---
+
+### `record_query.active_ai`
+
+Fires once per `ActiveAI::Tools::RecordQuery` call, inside its `tool_call.active_ai`. It says what the model asked to read and what happened, for an audit of what an LLM read on whose behalf. **It never carries the rows.**
+
+| Key | Type | Description |
+|---|---|---|
+| `:root_class` | String | Model of the `roots:` relation |
+| `:root_id` | String | Root id the model asked for |
+| `:association` | String\|nil | Association read; `nil` for a catalog call |
+| `:scopes` | Array | Scopes the model asked for, as sent |
+| `:limit` | Integer\|nil | Limit the model asked for |
+| `:context` | Object | The tool's `context:` (typically the user) |
+| `:outcome` | Symbol | `:read`, `:catalog` or `:refused` |
+| `:returned` | Integer | Rows returned (`:read`) |
+| `:truncated` | Boolean | More rows existed than were returned (`:read`) |
+| `:associations` | Array | Associations listed (`:catalog`) |
+| `:reason` | String | Why it was refused (`:refused`): not found, not readable, a write attempt, a timeout |
+
+---
+
+### `command_call.active_ai`
+
+Fires once per command, however it is invoked. `ActiveAI::Command::Base` wraps every subclass's `call`.
+
+| Key | Type | Description |
+|---|---|---|
+| `:command_name` | String | The command's declared name |
+| `:command_class` | String | Ruby class name of the command |
+| `:argument` | String\|nil | The argument captured from the typed trigger |
 | `:caller_type` | Symbol\|nil | Type of the caller |
 | `:caller_name` | String\|nil | Class name of the caller |
 
@@ -249,7 +283,7 @@ WorkflowClass.run("input")
               └─ tool_call.active_ai    caller_type: :agent,    caller_name: "WritingAgent"
 ```
 
-This is implemented via `ActiveAI::Instrumentation` — a thread-local stack that each component pushes itself onto before yielding control. You can read the current caller anywhere:
+This is implemented via `ActiveAI::Instrumentation` — a thread-local stack that each component pushes itself onto before yielding control. `parallel_step` carries the stack into each thread it starts, so a step's events still name the workflow. A thread you start yourself begins with an empty stack; carry it with `ActiveAI::Instrumentation.with_stack(stack)`. You can read the current caller anywhere:
 
 ```ruby
 ActiveAI::Instrumentation.current_caller

@@ -86,6 +86,23 @@ module ActiveAI
         raise NotImplementedError, "#{self.class}#call is not implemented"
       end
 
+      # Every command fires command_call.active_ai.
+      def self.inherited(subclass)
+        super
+        ActiveAI::Instrumentation.instrument_override(subclass, :call) do |_args, kwargs, invoke|
+          caller_ctx = ActiveAI::Instrumentation.current_caller
+          ActiveSupport::Notifications.instrument("command_call.active_ai", {
+            command_name:  command_name,
+            command_class: self.class.name,
+            argument:      kwargs[:argument],
+            caller_type:   caller_ctx&.dig(:type),
+            caller_name:   caller_ctx&.dig(:name)
+          }) do
+            ActiveAI::Instrumentation.with_caller(type: :command, name: command_name) { invoke.call }
+          end
+        end
+      end
+
       # Instance delegates — mirrors Tool::Base, so a Command instance
       # exposes the same identity interface as its class.
       def command_name   = self.class.command_name

@@ -526,29 +526,26 @@ module ActiveAI
 
       def execute_single_tool_call(tool_call, &block)
         registered_tool = all_tools.find { |candidate| candidate.tool_name == tool_call[:name] }
-        call_result     = nil
 
-        caller_ctx = ActiveAI::Instrumentation.current_caller
-        ActiveSupport::Notifications.instrument("tool_call.active_ai", {
-          tool_name:   tool_call[:name],
-          tool_class:  registered_tool.is_a?(Class) ? registered_tool.name : registered_tool&.class&.name,
-          input:       tool_call[:input],
-          caller_type: caller_ctx&.dig(:type),
-          caller_name: caller_ctx&.dig(:name)
-        }) do |notification|
-          call_result = begin
-            if registered_tool
-              registered_tool.call(**tool_call[:input].transform_keys(&:to_sym))
-            else
-              "Unknown tool: #{tool_call[:name]}"
-            end
-          rescue => tool_error
-            Rails.logger.error(
-              "ActiveAI: tool #{tool_call[:name]} raised #{tool_error.class}: #{tool_error.message}"
-            )
-            "Error: #{tool_error.class} — #{tool_error.message}"
+        # The tool fires tool_call.active_ai itself (Tool::Base); only a name the model
+        # invented, with no tool behind it, is reported here.
+        call_result = begin
+          if registered_tool
+            registered_tool.call(**tool_call[:input].transform_keys(&:to_sym))
+          else
+            caller_ctx = ActiveAI::Instrumentation.current_caller
+            ActiveSupport::Notifications.instrument("tool_call.active_ai", {
+              tool_name: tool_call[:name], tool_class: nil, input: tool_call[:input],
+              caller_type: caller_ctx&.dig(:type), caller_name: caller_ctx&.dig(:name),
+              result: "Unknown tool: #{tool_call[:name]}"
+            })
+            "Unknown tool: #{tool_call[:name]}"
           end
-          notification[:result] = call_result
+        rescue => tool_error
+          Rails.logger.error(
+            "ActiveAI: tool #{tool_call[:name]} raised #{tool_error.class}: #{tool_error.message}"
+          )
+          "Error: #{tool_error.class} — #{tool_error.message}"
         end
 
         yield({ tool_call: { id: tool_call[:id], name: tool_call[:name], input: tool_call[:input] } })
