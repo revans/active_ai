@@ -1,11 +1,12 @@
 # Built-in Tools
 
-ActiveAI ships two tools that are available in any agent without generating custom code. Register them with `tools` at the class level.
+ActiveAI ships three tools that are available in any agent without generating custom code. Register them with `tools` at the class level.
 
 | Library handles | You configure |
 |---|---|
 | `WebPageReader` — full SSRF protection, HTML stripping, size limit | Nothing — no key or config required |
 | `WebSearch` — routing to search adapter, result formatting | `search_provider` and API key in `config/initializers/active_ai.rb` |
+| `RecordQuery` — read-only ActiveRecord queries, row limit, write prevention | `ActiveAI::Readable` declarations on your models, and the `roots:` relation the user may reach |
 | `SearchAdapter` base class for custom backends | Custom adapter class + `SearchAdapter.register` if using a non-built-in provider |
 
 ---
@@ -106,3 +107,68 @@ ActiveAI::Tools::SearchAdapter.register(:internal, InternalSearchAdapter)
 ```
 
 `format_results` is provided by `SearchAdapter::Base` and formats an array of `{ title:, url:, body: }` hashes into a readable string. Override the entire method if you need a different output format.
+
+---
+
+## RecordQuery
+
+Gives the model read-only access to your database through ActiveRecord models — never SQL. The model reads only what your models declare, and only under records your app says the current user may reach.
+
+### Declare what is readable
+
+Nothing is readable until a model includes `ActiveAI::Readable` and declares it:
+
+```ruby
+class Account < ApplicationRecord
+  include ActiveAI::Readable
+  ai_readable associations: [:orders,
+                              { audit_entries: { if: ->(account, user) { user.admin_of?(account) } } }]
+end
+
+class Order < ApplicationRecord
+  include ActiveAI::Readable
+
+  scope :shipped, -> { where(status: "shipped") }
+  scope :since,   ->(date) { where(placed_on: Date.parse(date)..) }
+
+  ai_readable scopes:     { shipped: "Orders that have shipped",
+                            since:   "Orders placed on or after a date (YYYY-MM-DD)" },
+              attributes: %i[number status placed_at total]
+end
+```
+
+| Option | Means |
+|---|---|
+| `associations:` | `has_many` associations the model may walk from this record. A hash entry takes `if: ->(record, context)`, called with the tool's `context:`. |
+| `scopes:` | Scopes, or class methods returning a relation of this model, the model may apply. A hash gives each a description the model sees. |
+| `attributes:` | Attributes (or reader methods) returned for each record. Nothing else is returned. |
+
+### Register it with the user's roots
+
+The tool needs the current user, so register it per instance:
+
+```ruby
+class ReportingAgent < ApplicationAgent
+  def initialize(user:, **kwargs)
+    @user = user
+    super(**kwargs)
+  end
+
+  def instance_tools
+    [ActiveAI::Tools::RecordQuery.new(roots: @user.accounts, context: @user)]
+  end
+end
+```
+
+Pass the user in when you build the agent rather than reading `Current` inside it: workflows run parallel steps on new threads, where `Current` is empty.
+
+The model calls `query_records(root_id:)` to see what it can read under a root, then `query_records(root_id:, association:, scopes: [{ name:, args: [] }], limit:)`.
+
+### What it guarantees
+
+- **The root is yours to bound.** The root id is looked up only within `roots:`; one outside it is "not found", whether or not it exists.
+- **Results stay under the root.** After the model's scopes are applied, the association is re-applied as `WHERE id IN (...)`, so even a declared scope that calls `unscoped` cannot return another root's records.
+- **No writes.** Everything runs inside `ActiveRecord::Base.while_preventing_writes`; on PostgreSQL, also inside a `READ ONLY` transaction with a statement timeout (5 s by default, `statement_timeout_ms:`). The PostgreSQL transaction is skipped when the call is already inside a transaction.
+- **Bounded output.** At most 50 rows by default and never more than `max_limit:` (200); the result says when it truncated.
+
+Errors the model can fix (an unknown scope, wrong arguments, a timeout) come back as `{ "error": "..." }`. A declaration that cannot work — an association that is not `has_many`, a target model without `ActiveAI::Readable`, a declared method that does not return a relation of its model, a composite primary key — raises `ActiveAI::ConfigurationError`.

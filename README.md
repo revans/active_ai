@@ -92,7 +92,7 @@ end
 | Provider comparison | `rails g active_ai:evaluation` scaffolds `bin/rails ai:compare` | [docs/evaluation.md](docs/evaluation.md) |
 | Structured output | `response_schema` + `complete_structured`, `provider_options` | [docs/agents.md](docs/agents.md) |
 | Tools | Custom executable functions | [docs/tools.md](docs/tools.md) |
-| Built-in Tools | WebSearch, WebPageReader | [docs/built-in-tools.md](docs/built-in-tools.md) |
+| Built-in Tools | WebSearch, WebPageReader, RecordQuery (read-only ActiveRecord access) | [docs/built-in-tools.md](docs/built-in-tools.md) |
 | Providers | Anthropic, OpenAI, xAI, custom | [docs/providers.md](docs/providers.md) |
 | Prompt Files | ERB templates, partials, namespaced loading | [docs/prompt-files.md](docs/prompt-files.md) |
 | Workflows | Multi-agent sequential coordination | [docs/workflows.md](docs/workflows.md) |
