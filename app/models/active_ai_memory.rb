@@ -9,25 +9,12 @@
 class ActiveAIMemory < ApplicationRecord
   VALID_TIERS = %w[warm cold].freeze
 
-  # SQLite has no jsonb; there this column is `text`, so without an explicit
-  # serialize, assigning a Hash stores Ruby's Hash#to_s (single-quoted, `=>`
-  # syntax) instead of JSON, and Memory::Formatter's `JSON.parse` on read
-  # blows up on the very next recall. Postgres' native jsonb column already
-  # round-trips a Hash on its own — declaring `serialize` on top of that is
-  # what Rails now raises ColumnNotSerializableError for, rather than quietly
-  # double-handling it. Host apps that migrate this column to jsonb (see
-  # ChangeSummaryToJsonb) need `serialize` to switch off accordingly, so this
-  # checks the actual column type instead of assuming SQLite == text.
-  #
-  # A host app that uses agents and tools but not memory has no
-  # active_ai_memories table, and production eager loads this class at boot.
-  # Reading the column then raised and kept the whole app from starting, so
-  # the check answers false when the table is not there.
-  def self.summary_stored_as_text?
-    table_exists? && columns_hash["summary"].sql_type.casecmp?("text")
-  end
-
-  serialize :summary, coder: JSON if summary_stored_as_text?
+  # summary is `text` on SQLite and `jsonb` on PostgreSQL (or after ChangeSummaryToJsonb).
+  # The JSON type writes a JSON string, which both columns accept, and parses it back, so
+  # a Hash round-trips either way. Not `serialize`, which Rails refuses on a json column,
+  # and not a column-type check either: production eager loads this class at boot, and
+  # asking the database then keeps an app from starting without a connection.
+  attribute :summary, :json
 
   has_many :active_ai_memory_embeddings, foreign_key: :memory_id, dependent: :destroy
   has_many :active_ai_memory_flags,      foreign_key: :memory_id, dependent: :destroy

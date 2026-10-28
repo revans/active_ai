@@ -17,17 +17,13 @@ class ActiveAIMemoryTest < ActiveSupport::TestCase
     assert_equal({ "decisions" => [{ "description" => "x" }] }, reloaded.summary)
   end
 
-  # Production eager loads every class at boot. A host app that has not
-  # installed the memory tables (it uses agents and tools, not memory) must
-  # still boot: the class body may not read a table that is not there.
-  test "text-column check is false, not an error, when the table does not exist" do
-    absent = Class.new(ActiveAIMemory) { self.table_name = "active_ai_memories_not_installed" }
+  # The column holds JSON a reader outside Rails can parse, not Ruby's Hash#to_s. Booting with
+  # no memory tables (or no database at all) is covered by ActiveAIBootWithoutDatabaseTest.
+  test "summary is stored as JSON in the column" do
+    memory = ActiveAIMemory.create!(agent_class: "WriterAgent", tier: "warm", summary: { "a" => 1 })
+    raw    = ActiveAIMemory.connection.select_value("SELECT summary FROM active_ai_memories WHERE id = #{memory.id.to_i}")
 
-    assert_equal false, absent.summary_stored_as_text?
-  end
-
-  test "text-column check is true for the SQLite text column" do
-    assert ActiveAIMemory.summary_stored_as_text?
+    assert_equal({ "a" => 1 }, JSON.parse(raw))
   end
 
   test "requires agent_class" do
