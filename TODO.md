@@ -9,14 +9,9 @@
 ## Raised by Atlas F-066 (2026-10-28)
 
 What got in the way of the agents that built Atlas's first ActiveAI feature (the architect, designer and engineer
-reports in Atlas `docs/briefs/066-ai-data-querying/`). Already fixed then: RecordQuery's missing count past the row
+reports in Atlas `docs/briefs/066-ai-data-querying/`). Already fixed: `after_stream` now gets `completed:` (false on a client disconnect), RecordQuery's missing count past the row
 cap (`total`), generated class names under the "AI" acronym, omakase style in generated code, and the memory and
 credentials generators crashing.
-
-- **A cut-off stream looks like a finished answer.** `stream_agent` calls `after_stream` with the partial text and no
-  sign the client disconnected (or the stream stopped early), so an app saves half an answer as complete. Pass a
-  `completed:`/`interrupted:` flag (or a small result object) to `after_stream`. Also unblocks a "Stop" button: an app
-  cannot offer one without knowing the stream ended early. Raised by the architect and the designer.
 
 - **RecordQuery reads rows, not answers.** One root, rows only, capped: no counts by group, sums or comparisons across
   roots. Atlas cut its Finance agent (margin is computed, not read) and its agency-wide agent (comparing a 30-customer

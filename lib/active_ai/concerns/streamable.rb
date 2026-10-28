@@ -7,6 +7,12 @@ module ActiveAI
         include ActionController::Live
       end
 
+      # after_stream receives the accumulated text, and `completed:` when the block declares
+      # it: false when the client disconnected mid-stream, so the app can save the answer as
+      # cut off rather than finished.
+      #
+      #   stream_agent(agent) { |text, completed:| message.update!(content: text, outcome: completed ? "complete" : "failed") }
+      #
       # close: true (default) preserves the original single-turn contract —
       # writes the terminal [DONE] event and closes the response stream.
       #
@@ -43,6 +49,7 @@ module ActiveAI
 
         full_response  = String.new
         @stream_errored = false
+        completed      = true
 
         # Rescue only here — a disconnect during chunk writes is fine,
         # we still have the accumulated text and must save it.
@@ -56,11 +63,14 @@ module ActiveAI
             end
           end
         rescue ActionController::Live::ClientDisconnected
-          # Client disconnected mid-stream — keep full_response and fall through
+          # Client disconnected mid-stream — keep full_response and fall through, but say so:
+          # saved as complete, a cut-off answer would read as finished and go back to the
+          # model as history.
+          completed = false
         end
 
         # Always run: persist message, create AgentCall, write stats event.
-        after_stream&.call(full_response)
+        call_after_stream(after_stream, full_response, completed: completed)
 
         # Memory hook: no-op by default; controllers override to enqueue PersistJob.
         after_stream_memory_persist(agent, full_response)
@@ -84,6 +94,18 @@ module ActiveAI
         end
       end
       private :stream_agent_in_run
+
+      # A block that declares `completed:` learns whether the answer finished; a block that
+      # takes only the text keeps working as it always has.
+      def call_after_stream(after_stream, text, completed:)
+        return unless after_stream
+
+        wants_completed = after_stream.parameters.any? do |type, name|
+          type == :keyrest || (%i[key keyreq].include?(type) && name == :completed)
+        end
+        wants_completed ? after_stream.call(text, completed: completed) : after_stream.call(text)
+      end
+      private :call_after_stream
 
       private
 
