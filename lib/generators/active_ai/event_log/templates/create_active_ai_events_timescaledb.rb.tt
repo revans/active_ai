@@ -24,10 +24,10 @@ class <%= "create_active_ai_events".camelize %> < ActiveRecord::Migration[<%= Ac
     execute "SELECT create_hypertable('active_ai_events', 'started_at', chunk_time_interval => INTERVAL '<%= chunk_interval %>')"
     execute "ALTER TABLE active_ai_events ADD PRIMARY KEY (id, started_at)"
 
-    add_index :active_ai_events, [:run_id, :started_at]
+    add_index :active_ai_events, [ :run_id, :started_at ]
     add_index :active_ai_events, :span_id
     add_index :active_ai_events, :request_id
-    add_index :active_ai_events, [:name, :started_at]
+    add_index :active_ai_events, [ :name, :started_at ]
   end
 
   def down

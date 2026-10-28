@@ -10,7 +10,7 @@ class <%= "create_active_ai_memory_correlations".camelize %> < ActiveRecord::Mig
 
     add_foreign_key :active_ai_memory_correlations, :active_ai_memories, column: :memory_a_id
     add_foreign_key :active_ai_memory_correlations, :active_ai_memories, column: :memory_b_id
-    add_index :active_ai_memory_correlations, [:memory_a_id, :memory_b_id], unique: true, name: "idx_aim_correlation_pair"
+    add_index :active_ai_memory_correlations, [ :memory_a_id, :memory_b_id ], unique: true, name: "idx_aim_correlation_pair"
     add_index :active_ai_memory_correlations, :memory_b_id
 
     # Enforce memory_a_id < memory_b_id to prevent duplicate pairs.

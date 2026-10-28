@@ -1,0 +1,9 @@
+
+ActiveAI memory is installed. Next:
+
+  1. bin/rails db:migrate
+  2. With --vector=pgvector: bundle install (adds neighbor, for the embedding column)
+  3. Subclass Memory::ApplicationMemory per agent to set recall_strategy and token_budget
+
+See docs/memory.md in the active_ai gem.
+

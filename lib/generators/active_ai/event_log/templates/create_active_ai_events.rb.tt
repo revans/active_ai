@@ -16,14 +16,14 @@ class <%= "create_active_ai_events".camelize %> < ActiveRecord::Migration[<%= Ac
       if connection.adapter_name.match?(/postg/i)
         t.jsonb :payload, null: false, default: {}
       else
-        t.json  :payload, null: false
+        t.json :payload, null: false
       end
       t.datetime :created_at,     null: false
     end
 
-    add_index :active_ai_events, [:run_id, :started_at]
+    add_index :active_ai_events, [ :run_id, :started_at ]
     add_index :active_ai_events, :span_id
     add_index :active_ai_events, :request_id
-    add_index :active_ai_events, [:name, :started_at]
+    add_index :active_ai_events, [ :name, :started_at ]
   end
 end

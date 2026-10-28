@@ -10,7 +10,7 @@ class <%= "create_active_ai_memory_flags".camelize %> < ActiveRecord::Migration[
     end
 
     add_foreign_key :active_ai_memory_flags, :active_ai_memories, column: :memory_id
-    add_index :active_ai_memory_flags, [:memory_id, :flag_type]
-    add_index :active_ai_memory_flags, [:status, :flag_type]
+    add_index :active_ai_memory_flags, [ :memory_id, :flag_type ]
+    add_index :active_ai_memory_flags, [ :status, :flag_type ]
   end
 end

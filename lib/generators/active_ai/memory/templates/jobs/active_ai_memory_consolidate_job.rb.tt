@@ -22,7 +22,7 @@ class ActiveAIMemoryConsolidateJob < ApplicationJob
         break if pair_count >= MAX_PAIRS
         next if similar_id == memory_id
 
-        a, b = [memory_id, similar_id].sort
+        a, b = [ memory_id, similar_id ].sort
         pair_key = "#{a}:#{b}"
         next if processed_pairs.include?(pair_key)
         next if ActiveAIMemoryCorrelation.exists?(memory_a_id: a, memory_b_id: b)
@@ -73,7 +73,7 @@ class ActiveAIMemoryConsolidateJob < ApplicationJob
     end
 
     if result["should_flag"]
-      [memory_a, memory_b].each do |m|
+      [ memory_a, memory_b ].each do |m|
         m.active_ai_memory_flags.create!(
           flag_type:          result["flag_type"],
           reason:             result["flag_reason"],

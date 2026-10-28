@@ -16,14 +16,14 @@ class <%= "create_active_ai_memories".camelize %> < ActiveRecord::Migration[<%= 
       t.integer :access_count, null: false, default: 0
       t.datetime :last_accessed_at
       t.datetime :promoted_at
-      t.float   :confidence, null: false, default: 1.0
+      t.float :confidence, null: false, default: 1.0
       t.timestamps
     end
 
-    add_index :active_ai_memories, [:user_type, :user_id, :agent_class], name: "idx_aim_user_agent"
-    add_index :active_ai_memories, [:subject_type, :subject_id, :agent_class], name: "idx_aim_subject_agent"
-    add_index :active_ai_memories, [:user_type, :user_id, :subject_type, :subject_id, :agent_class, :scope], name: "idx_aim_full_lookup"
-    add_index :active_ai_memories, [:tier, :last_accessed_at], name: "idx_aim_tier_access"
-    add_index :active_ai_memories, [:agent_class, :subject_type, :subject_id], name: "idx_aim_agent_subject"
+    add_index :active_ai_memories, [ :user_type, :user_id, :agent_class ], name: "idx_aim_user_agent"
+    add_index :active_ai_memories, [ :subject_type, :subject_id, :agent_class ], name: "idx_aim_subject_agent"
+    add_index :active_ai_memories, [ :user_type, :user_id, :subject_type, :subject_id, :agent_class, :scope ], name: "idx_aim_full_lookup"
+    add_index :active_ai_memories, [ :tier, :last_accessed_at ], name: "idx_aim_tier_access"
+    add_index :active_ai_memories, [ :agent_class, :subject_type, :subject_id ], name: "idx_aim_agent_subject"
   end
 end

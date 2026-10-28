@@ -34,7 +34,7 @@ class ActiveAIMemoryEmbedAgent < ApplicationAgent
       system:       self.class._system_prompt.to_s,
       skills:       [],
       source_files: [],
-      messages:     [{ role: "user", content: content }],
+      messages:     [ { role: "user", content: content } ],
       cacheable:    {},
       tools:        []
     }

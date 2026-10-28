@@ -13,7 +13,7 @@ class ActiveAIEventLogGeneratorTest < Rails::Generators::TestCase
     run_generator
 
     assert_migration "db/migrate/create_active_ai_events.rb", /create_table :active_ai_events/
-    assert_migration "db/migrate/create_active_ai_events.rb", /add_index :active_ai_events, \[:run_id, :started_at\]/
+    assert_migration "db/migrate/create_active_ai_events.rb", /add_index :active_ai_events, \[ :run_id, :started_at \]/
     assert_file "app/models/ai_event_record.rb", /connects_to database: \{ writing: :primary \}/
     assert_file "app/models/ai_event.rb", /class AIEvent < AIEventRecord/, /include ActiveAI::EventLog/
     assert_file "config/initializers/active_ai_event_log.rb", /subscribe\(\/\\\.active_ai\\z\/\)/, /AIEvent\.record\(event\)/
