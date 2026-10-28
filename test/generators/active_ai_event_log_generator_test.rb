@@ -19,6 +19,17 @@ class ActiveAIEventLogGeneratorTest < Rails::Generators::TestCase
     assert_file "config/initializers/active_ai_event_log.rb", /subscribe\(\/\\\.active_ai\\z\/\)/, /AiEvent\.record\(event\)/
   end
 
+  test "the generated AiEvent keeps a tool's name and arguments but not its result" do
+    run_generator
+
+    source = File.read(File.join(destination_root, "app/models/ai_event.rb"))
+    filter = Module.new { module_eval(source[/  def self\.filter_payload.*?\n  end\n/m]) }
+    stored = filter.filter_payload("tool_call.active_ai", { tool_name: "lookup", input: { q: "x" }, result: "rows" })
+
+    assert_equal({ tool_name: "lookup", input: { q: "x" } }, stored)
+    assert_equal({ result: "kept" }, filter.filter_payload("agent_turn.active_ai", { result: "kept" }))
+  end
+
   test "--database points the event connection at another database.yml entry" do
     run_generator %w[--database=logs]
 

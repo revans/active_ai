@@ -212,7 +212,7 @@ Stores every ActiveAI event as a row, so a run can be rebuilt from its prompts, 
 |---|---|
 | `db/migrate/..._create_active_ai_events.rb` | `active_ai_events`: name, `run_id`, `span_id`, `parent_span_id`, `request_id`, `job_id`, caller, start/finish times, duration, error, and the payload (`jsonb` on PostgreSQL) |
 | `app/models/ai_event_record.rb` | Abstract class with its own connection pool to the same database, so events commit even when the app's transaction rolls back — a failed run is the one you want to read |
-| `app/models/ai_event.rb` | `AiEvent`, including `ActiveAI::EventLog`: `AiEvent.for_run(run_id)`, `for_span`, `for_request`; override `filter_payload` to drop or redact keys |
+| `app/models/ai_event.rb` | `AiEvent`, including `ActiveAI::EventLog`: `AiEvent.for_run(run_id)`, `for_span`, `for_request`, `request_for`. Its `filter_payload` keeps a tool call's name and arguments but drops the result (the next `agent_request` already holds it); edit it to keep results or redact more |
 | `config/initializers/active_ai_event_log.rb` | The subscriber: every `*.active_ai` event becomes a row, except `agent_complete` and `agent_stream`, which repeat what `agent_request` and `agent_turn` hold |
 | `app/jobs/active_ai_event_prune_job.rb` | Deletes events past the retention window (`AiEvent.prune(older_than:)`); schedule it, e.g. in `config/recurring.yml` |
 | `db/migrate/..._add_ai_run_id_to_<table>.rb` | With `--link-to`: an indexed `ai_run_id` column on your own table |

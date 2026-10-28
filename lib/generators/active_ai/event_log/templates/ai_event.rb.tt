@@ -9,7 +9,11 @@ class AiEvent < AiEventRecord
 
   self.table_name = "active_ai_events"
 
-  # Payloads hold full prompts and answers. Drop or redact what must not be stored:
+  # Payloads hold full prompts and answers; drop or redact what must not be stored here.
   #
-  #   def self.filter_payload(name, payload) = payload.except(:source_files)
+  # A tool_call row keeps the tool and the arguments it was called with, but not its
+  # result: the result goes back to the model, so the next agent_request already holds it.
+  def self.filter_payload(name, payload)
+    name == "tool_call.active_ai" ? payload.except(:result) : payload
+  end
 end
