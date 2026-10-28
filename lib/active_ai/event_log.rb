@@ -5,6 +5,7 @@ module ActiveAI
   #   ActiveSupport::Notifications.subscribe(/\.active_ai\z/) { |event| AiEvent.record(event) }
   #
   #   AiEvent.for_run(response.run_id)   # every event of a run, oldest first
+  #   AiEvent.request_for(span_id)        # the full request one provider call sent
   #
   # Recording never raises into the AI call it is logging: a failed insert is logged and
   # dropped. Override filter_payload to drop or redact keys before they are stored.
@@ -38,6 +39,37 @@ module ActiveAI
       rescue StandardError => error
         Rails.logger.error("ActiveAI::EventLog could not record #{event.name}: #{error.class}: #{error.message}")
         nil
+      end
+
+      REQUEST_SETTINGS = %w[system skills source_files tools max_tokens response_schema options cacheable].freeze
+
+      # The full request one provider call sent — settings, model and every message — rebuilt from the agent_request
+      # events of its stream, which each store only what was new. nil when any of them is missing (skipped, pruned,
+      # or failed to record), rather than a request with a hole in it.
+      def request_for(span_id)
+        request = find_by(name: "agent_request", span_id: span_id)
+        return unless request
+
+        turn   = request.payload["turn"].to_i
+        stream = where(name: "agent_request", run_id: request.run_id, parent_span_id: request.parent_span_id)
+                   .map(&:payload).select { |payload| payload["turn"].to_i <= turn }.sort_by { |payload| payload["turn"].to_i }
+        return unless stream.map { |payload| payload["turn"].to_i } == (1..turn).to_a
+
+        messages = []
+        stream.each do |payload|
+          return unless payload["messages_before"].to_i == messages.size
+
+          messages.concat(Array(payload["messages"]))
+        end
+
+        stream.first.slice(*REQUEST_SETTINGS).merge("model" => request.payload["model"], "messages" => messages)
+      end
+
+      # Deletes events that started before older_than ago, in batches. Returns how many.
+      #
+      #   AiEvent.prune(older_than: 90.days)
+      def prune(older_than:)
+        where(started_at: ...older_than.ago).in_batches(of: 10_000).delete_all
       end
 
       # Override to drop or redact keys before a payload is stored. Must return a Hash.

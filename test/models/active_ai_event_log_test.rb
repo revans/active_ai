@@ -1,4 +1,5 @@
 require "test_helper"
+require "support/fake_openai_agent"
 
 ActiveRecord::Schema.verbose = false
 ActiveRecord::Schema.define do
@@ -94,6 +95,37 @@ class ActiveAIEventLogTest < ActiveSupport::TestCase
     recording(RedactingEvent) { LogTool.new.call(text: "secret") }
 
     assert_not Event.sole.payload.key?("input")
+  end
+
+  test "request_for rebuilds exactly what each provider call was sent, from requests that each stored only what was new" do
+    agent, sent = FakeOpenAIAgent.build(FakeOpenAIAgent.tool_then_answer)
+    recording { agent.complete }
+
+    spans = Event.where(name: "agent_request").order(:started_at, :id).map(&:span_id)
+    assert_equal 2, spans.size
+    spans.zip(sent).each do |span, messages|
+      request = Event.request_for(span)
+      assert_equal JSON.parse(messages.to_json), request["messages"]
+      assert_equal "lookup", request["tools"].first["name"]
+    end
+  end
+
+  test "request_for refuses to rebuild a request with a missing piece" do
+    agent, _sent = FakeOpenAIAgent.build(FakeOpenAIAgent.tool_then_answer)
+    recording { agent.complete }
+    first, second = Event.where(name: "agent_request").order(:started_at, :id).to_a
+
+    first.destroy
+    assert_nil Event.request_for(second.span_id)
+  end
+
+  test "prune deletes events older than the window and keeps the rest" do
+    old    = Event.create!(name: "x", run_id: "old", started_at: 100.days.ago, finished_at: 100.days.ago, payload: {})
+    recent = Event.create!(name: "x", run_id: "new", started_at: 1.day.ago, finished_at: 1.day.ago, payload: {})
+
+    assert_equal 1, Event.prune(older_than: 90.days)
+    assert_equal [recent.id], Event.pluck(:id)
+    assert_not Event.exists?(old.id)
   end
 
   test "a failed insert never raises into the AI call" do

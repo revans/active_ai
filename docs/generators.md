@@ -200,7 +200,9 @@ See [credentials.md](credentials.md) for how to use the credential store.
 
 ```bash
 rails generate active_ai:event_log
-rails generate active_ai:event_log --database=logs   # a database.yml entry other than primary
+rails generate active_ai:event_log --database=logs      # a database.yml entry other than primary
+rails generate active_ai:event_log --retain-days=30     # how long the prune job keeps events (default 90)
+rails generate active_ai:event_log --link-to=messages   # add ai_run_id to your own chat table
 rails db:migrate
 ```
 
@@ -211,7 +213,15 @@ Stores every ActiveAI event as a row, so a run can be rebuilt from its prompts, 
 | `db/migrate/..._create_active_ai_events.rb` | `active_ai_events`: name, `run_id`, `span_id`, `parent_span_id`, `request_id`, `job_id`, caller, start/finish times, duration, error, and the payload (`jsonb` on PostgreSQL) |
 | `app/models/ai_event_record.rb` | Abstract class with its own connection pool to the same database, so events commit even when the app's transaction rolls back — a failed run is the one you want to read |
 | `app/models/ai_event.rb` | `AiEvent`, including `ActiveAI::EventLog`: `AiEvent.for_run(run_id)`, `for_span`, `for_request`; override `filter_payload` to drop or redact keys |
-| `config/initializers/active_ai_event_log.rb` | The subscriber: every `*.active_ai` event becomes a row; list events to skip at the top |
+| `config/initializers/active_ai_event_log.rb` | The subscriber: every `*.active_ai` event becomes a row, except `agent_complete` and `agent_stream`, which repeat what `agent_request` and `agent_turn` hold |
+| `app/jobs/active_ai_event_prune_job.rb` | Deletes events past the retention window (`AiEvent.prune(older_than:)`); schedule it, e.g. in `config/recurring.yml` |
+| `db/migrate/..._add_ai_run_id_to_<table>.rb` | With `--link-to`: an indexed `ai_run_id` column on your own table |
+
+### The event log and your own chat tables
+
+They hold different things. Your chat table is the conversation the user sees, kept as long as the product needs it. The event log is what went to the model — system prompt, skills, tool definitions, tool results, every intermediate turn — kept for tracing, then pruned. Only the user's message and the final answer appear in both. Connect them by id rather than copying: save `agent.run_id` (or `response.run_id`) in your row's `ai_run_id`, and `AiEvent.for_run(row.ai_run_id)` finds everything behind it.
+
+Within the log, each piece is stored once: a request stores only the messages new since the stream's previous one, settings go out on a stream's first request only, and `AiEvent.request_for(span_id)` puts a full request back together.
 
 Recording never raises into the AI call: a failed insert is logged and dropped. The separate pool opens its own connections, so count it when sizing the database's connection limit. Payloads hold full prompts and answers — give the table the same retention and access rules as the data that goes into prompts.
 

@@ -25,8 +25,24 @@ class ActiveAIEventLogGeneratorTest < Rails::Generators::TestCase
     assert_file "app/models/ai_event_record.rb", /connects_to database: \{ writing: :logs \}/
   end
 
-  test "every generated Ruby file is valid Ruby" do
+  test "skips the events that repeat prompts and answers, and prunes after 90 days by default" do
     run_generator
+
+    assert_file "config/initializers/active_ai_event_log.rb", /skipped = %w\[agent_complete agent_stream\]/
+    assert_file "app/jobs/active_ai_event_prune_job.rb", /RETAIN = 90\.days/, /AiEvent\.prune/
+    assert_no_migration "db/migrate/add_ai_run_id_to_messages.rb"
+  end
+
+  test "--retain-days and --link-to" do
+    run_generator %w[--retain-days=30 --link-to=messages]
+
+    assert_file "app/jobs/active_ai_event_prune_job.rb", /RETAIN = 30\.days/
+    assert_migration "db/migrate/add_ai_run_id_to_messages.rb",
+                     /class AddAiRunIdToMessages/, /add_column :messages, :ai_run_id, :string/, /add_index  :messages, :ai_run_id/
+  end
+
+  test "every generated Ruby file is valid Ruby" do
+    run_generator %w[--link-to=messages]
     Dir[File.join(destination_root, "{app,config,db}/**/*.rb")].each do |path|
       RubyVM::InstructionSequence.compile_file(path)
     end

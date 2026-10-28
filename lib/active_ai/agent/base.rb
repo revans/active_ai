@@ -199,6 +199,7 @@ module ActiveAI
         @last_tool_call_results = []
         @turn_usages = []
         @turn_log = []
+        @messages_announced = 0
         params   = build_params
         @last_sent_messages  = params[:messages]
         @last_system_prompt  = params[:system]
@@ -411,26 +412,28 @@ module ActiveAI
         ), span: span)
       end
 
+      REQUEST_SETTINGS = %i[system skills source_files tools max_tokens response_schema options cacheable].freeze
+
       # Fires agent_request.active_ai before a provider call, under the span its turn will be filed under, so the
-      # request is on record even when no answer ever comes back. It carries everything ActiveAI hands the provider —
-      # the provider builds its HTTP body from exactly these — so the call can be replayed from the event alone.
+      # request is on record even when no answer ever comes back. Between them, a stream's request events carry
+      # everything ActiveAI hands the provider, each piece once: the settings (system prompt, skills, source files,
+      # tool definitions, limits, schema, options) on the first, which do not change within a stream, and on every
+      # one only the messages added since the one before. ActiveAI::EventLog.request_for rebuilds a full request.
       def announce_request(params, messages, span)
-        ActiveAI::Instrumentation.instrument("agent_request.active_ai", {
+        first   = @turn_log.empty?
+        payload = {
           agent_class:     self.class.name,
           provider:        resolved_provider,
           model:           params[:model],
           turn:            @turn_log.size + 1,
-          system:          params[:system],
-          skills:          params[:skills],
-          source_files:    params[:source_files],
-          messages:        messages,
-          tools:           params[:tools],
-          max_tokens:      params[:max_tokens],
-          response_schema: params[:response_schema],
-          options:         params[:options],
-          cacheable:       params[:cacheable],
+          messages_before: @messages_announced.to_i,
+          messages:        messages.drop(@messages_announced.to_i),
           context:         call_context
-        }, span: span)
+        }
+        payload.merge!(params.slice(*REQUEST_SETTINGS)) if first
+        @messages_announced = messages.size
+
+        ActiveAI::Instrumentation.instrument("agent_request.active_ai", payload, span: span)
       end
 
       def announce_usage(completed:)

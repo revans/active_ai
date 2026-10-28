@@ -1,47 +1,21 @@
 require "test_helper"
+require "support/fake_openai_agent"
 
 # A prompt, the model's answer and every log line around them share ActiveAI's own ids, minted before anything is
 # sent — so a call that never got an answer is still tied to the prompt that went out for it.
 class ActiveAITraceIdsTest < ActiveSupport::TestCase
-  class TraceLookup < ApplicationTool
-    tool_name "lookup"
-    description "Looks something up"
-    def call(**) = "ship on Friday"
-  end
+  TraceLookup = FakeOpenAIAgent::Lookup
 
   class TraceWorkflow < ActiveAI::Workflow::Base
     def run(input) = parallel_step([TraceLookup, {}], [TraceLookup, {}])
   end
 
-  def text_chunks(text) = [ { "id" => "chatcmpl-1", "choices" => [ { "delta" => { "content" => text }, "finish_reason" => nil } ], "usage" => nil } ]
-  def stop_chunks = [ { "id" => "chatcmpl-1", "choices" => [ { "delta" => {}, "finish_reason" => "stop" } ], "usage" => nil },
-                      { "id" => "chatcmpl-1", "choices" => [], "usage" => { "prompt_tokens" => 20, "completion_tokens" => 6 } } ]
-  def tool_chunks = [
-    { "id" => "chatcmpl-0", "choices" => [ { "delta" => { "tool_calls" => [ { "index" => 0, "id" => "call_1", "type" => "function", "function" => { "name" => "lookup", "arguments" => "{}" } } ] }, "finish_reason" => nil } ], "usage" => nil },
-    { "id" => "chatcmpl-0", "choices" => [ { "delta" => {}, "finish_reason" => "tool_calls" } ], "usage" => nil },
-    { "id" => "chatcmpl-0", "choices" => [], "usage" => { "prompt_tokens" => 10, "completion_tokens" => 5 } } ]
-
-  # `turns` is a list of [chunks, error-to-raise-after-them].
-  def agent_with(turns)
-    provider = ActiveAI::Provider::OpenAI.new
-    calls = 0
-    fake = Object.new
-    fake.define_singleton_method(:chat) do |parameters:|
-      chunks, failure = turns.fetch(calls)
-      calls += 1
-      chunks.each { |chunk| parameters[:stream].call(chunk, nil) }
-      raise failure if failure
-    end
-    provider.instance_variable_set(:@client, fake)
-    agent = Class.new(WritingAgent) { tools TraceLookup }.new(system: "s", message: "when do we ship?")
-    agent.define_singleton_method(:provider_instance) { provider }
-    agent
-  end
+  def agent_with(turns) = FakeOpenAIAgent.build(turns).first
 
   test "each prompt and its answer share a span, and the run id ties them to the response and every event" do
     agent = nil
     events = capture(%w[agent_request agent_turn tool_call agent_complete agent_usage]) do
-      agent = agent_with([ [ tool_chunks, nil ], [ text_chunks("Friday.") + stop_chunks, nil ] ])
+      agent = agent_with(FakeOpenAIAgent.tool_then_answer)
       agent.generate
     end
 
@@ -59,6 +33,9 @@ class ActiveAITraceIdsTest < ActiveSupport::TestCase
     assert_equal agent.send(:build_params).except(:messages), requests.first.slice(*agent.send(:build_params).except(:messages).keys),
                  "the request event carries every setting ActiveAI hands the provider"
     assert_equal ["lookup"], requests.first[:tools].map { |tool| tool[:name] }
+    assert_not requests.last.key?(:system), "settings go out once per stream, on its first request"
+    assert_equal requests.first[:messages].size, requests.last[:messages_before]
+    assert_equal %w[assistant tool], requests.last[:messages].map { |m| m[:role].to_s }, "a later request carries only what is new"
 
     complete = events.find { |name, _| name == "agent_complete" }.last
     tool     = events.find { |name, _| name == "tool_call" }.last

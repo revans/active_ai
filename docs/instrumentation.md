@@ -34,7 +34,7 @@ Use a run id of your own with `ActiveAI::Instrumentation.with_run(run_id: "...")
 
 ### `agent_request.active_ai`
 
-Fires before every provider call with everything ActiveAI hands the provider — the provider builds its HTTP body from exactly these, so the call can be replayed from the event alone. It shares its `span_id` with the `agent_turn.active_ai` that follows.
+Fires before every provider call, sharing its `span_id` with the `agent_turn.active_ai` that follows. Between them, a stream's request events carry everything ActiveAI hands the provider — the provider builds its HTTP body from exactly these — each piece once: the settings on the first request of the stream (they do not change within it), and on every request only the messages added since the one before. `AiEvent.request_for(span_id)` (from [`active_ai:event_log`](generators.md#active_aievent_log)) rebuilds the full request a call sent. To rebuild one yourself, take the stream's requests — same `run_id` and `parent_span_id` — in `turn` order, append their `messages`, and check each `messages_before` against the count so far.
 
 | Key | Type | Description |
 |---|---|---|
@@ -42,10 +42,11 @@ Fires before every provider call with everything ActiveAI hands the provider —
 | `:provider` | Symbol | Provider the call goes to |
 | `:model` | String | Model requested |
 | `:turn` | Integer | 1 for the first provider call of the run, then 2, and so on |
-| `:system` | String | The system prompt |
+| `:messages_before` | Integer | Messages earlier requests of this stream already carried |
+| `:messages` | Array | The messages added since the previous request: on the first, the whole conversation; after a tool turn, the assistant's turn and the tool results |
+| `:system` | String | The system prompt *(first request of a stream only, as are the keys below down to `:cacheable`)* |
 | `:skills` | Array | Skills sent with it, `{ name:, content: }` |
 | `:source_files` | Array | Source files sent with it |
-| `:messages` | Array | The messages sent, including earlier turns and tool results |
 | `:tools` | Array | Full definitions of the tools offered: name, description, input schema |
 | `:max_tokens` | Integer\|nil | Output limit (`nil` for `:unlimited`) |
 | `:response_schema` | Hash\|nil | The structured-output schema, when the agent declares one |
