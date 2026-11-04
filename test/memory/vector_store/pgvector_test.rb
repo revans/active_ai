@@ -10,7 +10,10 @@ require "test_helper"
 # noted here rather than silently skipped.
 class ActiveAIMemoryVectorStorePgvectorTest < ActiveSupport::TestCase
   setup { @adapter = ActiveAI::Memory::VectorStore::Pgvector.new }
-  teardown { ActiveAIMemoryEmbedding.delete_all }
+  teardown do
+    ActiveAIMemoryEmbedding.delete_all
+    ActiveAIMemory.delete_all
+  end
 
   test "name is pgvector" do
     assert_equal "pgvector", @adapter.name
@@ -29,6 +32,23 @@ class ActiveAIMemoryVectorStorePgvectorTest < ActiveSupport::TestCase
 
   test "query on sqlite returns empty even with a filter" do
     assert_equal [], @adapter.query(embedding: [0.1], limit: 5, filter: { tier: "cold" })
+  end
+
+  test "a new row is ready to save: vector_id starts as the memory's id (upsert itself needs PostgreSQL)" do
+    memory = ActiveAIMemory.create!(agent_class: "WriterAgent", tier: "warm", summary: {})
+
+    record = @adapter.send(:record_for, memory.id)
+
+    assert record.new_record?
+    assert_equal memory.id.to_s, record.vector_id
+    assert record.valid?, record.errors.full_messages.to_sentence
+  end
+
+  test "an existing row keeps the vector_id it already has" do
+    memory = ActiveAIMemory.create!(agent_class: "WriterAgent", tier: "warm", summary: {})
+    ActiveAIMemoryEmbedding.create!(memory_id: memory.id, vector_id: "kept", vector_store: "pgvector")
+
+    assert_equal "kept", @adapter.send(:record_for, memory.id).vector_id
   end
 
   test "delete on sqlite is a no-op and does not raise" do

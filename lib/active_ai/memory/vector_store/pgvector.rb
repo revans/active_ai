@@ -16,10 +16,7 @@ module ActiveAI
         def upsert(memory_id:, embedding:, metadata: {})
           return "stub-#{memory_id}" if sqlite?
 
-          record = ActiveAIMemoryEmbedding.find_or_initialize_by(
-            memory_id: memory_id,
-            vector_store: "pgvector"
-          )
+          record = record_for(memory_id)
           record.embedding   = embedding
           record.embedded_at = Time.current
           record.save!
@@ -51,6 +48,14 @@ module ActiveAI
         end
 
         private
+
+        # The row for a memory, ready to save. vector_id is required by the model, and a new row has none (the row's own id
+        # does not exist yet), so it starts as the memory's id, which is what the embed job template also records.
+        def record_for(memory_id)
+          ActiveAIMemoryEmbedding.find_or_initialize_by(memory_id: memory_id, vector_store: "pgvector").tap do |record|
+            record.vector_id = memory_id.to_s if record.vector_id.blank?
+          end
+        end
 
         def sqlite?
           ActiveRecord::Base.connection.adapter_name.downcase.include?("sqlite")
