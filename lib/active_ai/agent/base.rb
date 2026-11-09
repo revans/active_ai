@@ -259,6 +259,12 @@ module ActiveAI
               record_turn(turn_text, tool_calls, usage: @turn_usages.last, span: turn_span)
               break if tool_calls.blank?
 
+              if @last_provider_instance.respond_to?(:last_finish_reason) && @last_provider_instance.last_finish_reason == :truncated
+                raise OutputTruncatedError,
+                  "#{self.class.name}: the model reached its output limit (provider said #{@last_provider_instance.last_raw_finish_reason.inspect}) " \
+                  "while writing a tool call, so the call is incomplete and was not run. Raise max_tokens."
+              end
+
               tool_results = execute_tool_calls(tool_calls, &block)
               messages = messages +
                 [@last_provider_instance.format_assistant_turn(
@@ -355,6 +361,9 @@ module ActiveAI
       def turn_log = @turn_log.to_a
 
       # Usage data from the last call — full breakdown including cache tokens.
+      # Why the last provider turn stopped (:complete, :truncated, :tool_use, :refused, :other), or nil before any turn.
+      def last_finish_reason = (@last_provider_instance.last_finish_reason if @last_provider_instance.respond_to?(:last_finish_reason))
+
       def last_usage
         @last_provider_instance&.last_usage
       end

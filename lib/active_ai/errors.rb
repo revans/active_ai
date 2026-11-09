@@ -1,6 +1,10 @@
 module ActiveAI
   class Error < StandardError; end
 
+  # The model's output stopped at the token limit while it was writing a tool call, so the call is incomplete (its arguments cut off) and was not run.
+  # Without this the cut-off call reached the tool as empty arguments and the model was told "invalid arguments", over and over.
+  class OutputTruncatedError < Error; end
+
   # Raised when a provider gem raises — wraps provider-specific errors so callers
   # don't need to rescue Anthropic::Error, OpenAI::Error, etc. separately.
   #
