@@ -192,7 +192,14 @@ module ActiveAI
       # Streaming call — agentic loop. Yields String chunks for text deltas
       # and { tool_call: { id:, name:, input: } } hashes for tool invocations.
       # A block is required — calling stream without one raises ArgumentError immediately.
-      def stream(&block)
+      #
+      # With `tool_progress: true` the block also receives, while the model is still writing a tool call (before the
+      # tool runs, and before its arguments are complete):
+      #   { tool_started:  { id:, name: } }                    once, when the model begins the call
+      #   { tool_progress: { id:, name:, characters: Integer } }  as its arguments arrive (cumulative length)
+      # so a caller can show "writing the brief" during what is otherwise a silent stretch. Off by default: a block
+      # written before these events existed sees only Strings and { tool_call: } hashes, exactly as it did.
+      def stream(tool_progress: false, &block)
         raise ArgumentError,
           "#{self.class.name}#stream requires a block — use: agent.stream { |event| ... }" unless block_given?
 
@@ -201,6 +208,7 @@ module ActiveAI
         @turn_log = []
         @messages_announced = 0
         params   = build_params
+        params   = params.merge(tool_progress: true) if tool_progress
         @last_sent_messages  = params[:messages]
         @last_system_prompt  = params[:system]
         messages = params[:messages]

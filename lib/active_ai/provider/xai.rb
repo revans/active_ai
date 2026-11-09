@@ -24,6 +24,7 @@ module ActiveAI
         @last_tool_calls        = []
         @last_assistant_content = []
         accumulator = {}
+        @tool_progress = canonical[:tool_progress]
 
         params = build_params(canonical).merge(
           stream: proc { |chunk, _| handle_chunk(chunk, accumulator, &block) }

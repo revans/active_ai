@@ -76,7 +76,11 @@ module ActiveAI
         params             = build_anthropic_params(canonical)
         @last_model = @last_raw_finish_reason = @last_refusal = nil
         message_stream     = client.messages.stream(**params)
-        message_stream.text.each { |text| yield text }
+        if canonical[:tool_progress]
+          each_progress_event(message_stream) { |event| yield event }
+        else
+          message_stream.text.each { |text| yield text }
+        end
         accumulated_message         = message_stream.accumulated_message
         @last_usage             = extract_usage(accumulated_message)
         record_facts(accumulated_message)
@@ -87,6 +91,32 @@ module ActiveAI
       end
 
       private
+
+      # Text deltas as Strings (as `message_stream.text` gives them), plus { tool_started: } when a tool_use block begins and
+      # { tool_progress: } as its JSON input arrives. Only used when the caller asked for tool progress.
+      def each_progress_event(message_stream)
+        tools = {}
+        message_stream.each do |event|
+          next unless event.respond_to?(:type)
+
+          case event.type
+          when :content_block_start
+            block = event.content_block
+            next unless block.respond_to?(:type) && block.type == :tool_use
+
+            tools[event.index] = { id: block.id, name: block.name, characters: 0 }
+            yield({ tool_started: { id: block.id, name: block.name } })
+          when :content_block_delta
+            delta = event.delta
+            if delta.type == :text_delta
+              yield delta.text
+            elsif delta.type == :input_json_delta && (tool = tools[event.index])
+              tool[:characters] += delta.partial_json.to_s.length
+              yield({ tool_progress: { id: tool[:id], name: tool[:name], characters: tool[:characters] } })
+            end
+          end
+        end
+      end
 
       # Translates canonical params into the Anthropic messages.create wire format.
       # Injects cache_control on system blocks and the context message based on cacheable hints.

@@ -76,6 +76,7 @@ module ActiveAI
         @last_text              = ""
         @last_model = @last_raw_finish_reason = @last_refusal = nil
         accumulator = {}
+        @tool_progress = canonical[:tool_progress]
 
         params = build_params(canonical).merge(
           stream:         proc { |chunk, _| handle_chunk(chunk, accumulator, &block) },
@@ -216,10 +217,16 @@ module ActiveAI
               "type"     => "function",
               "function" => { "name" => nil, "arguments" => "" }
             }
+            first_name = tc["function"]["name"].nil? && delta.dig("function", "name")
             tc["id"]                    = delta["id"]                     if delta["id"]
             tc["type"]                  = delta["type"]                   if delta["type"]
             tc["function"]["name"]      = delta.dig("function", "name")   if delta.dig("function", "name")
             tc["function"]["arguments"] += delta.dig("function", "arguments").to_s
+            next unless @tool_progress
+
+            # Only when the caller asked (stream(tool_progress: true)): the model has begun a tool call, and how much of it has arrived.
+            yield({ tool_started: { id: tc["id"], name: tc["function"]["name"] } }) if first_name
+            yield({ tool_progress: { id: tc["id"], name: tc["function"]["name"], characters: tc["function"]["arguments"].length } }) if delta.dig("function", "arguments").present?
           end
         end
 
